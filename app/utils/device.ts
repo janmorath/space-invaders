@@ -11,6 +11,25 @@ interface WindowWithOpera extends Window {
   };
 }
 
+// Fullscreen API has cross-browser variations
+interface FullscreenDocument {
+  fullscreenElement: Element | null;
+  webkitFullscreenElement?: Element | null;
+  mozFullScreenElement?: Element | null;
+  msFullscreenElement?: Element | null;
+  exitFullscreen: () => Promise<void>;
+  webkitExitFullscreen?: () => Promise<void>;
+  mozCancelFullScreen?: () => Promise<void>;
+  msExitFullscreen?: () => Promise<void>;
+}
+
+interface FullscreenElement {
+  requestFullscreen: (options?: FullscreenOptions) => Promise<void>;
+  webkitRequestFullscreen?: () => Promise<void>;
+  mozRequestFullScreen?: () => Promise<void>;
+  msRequestFullscreen?: () => Promise<void>;
+}
+
 /**
  * Detects if the current device is a mobile device
  * @returns boolean - true if the device is mobile, false otherwise
@@ -55,6 +74,65 @@ export const useOrientationChange = (callback: (orientation: 'portrait' | 'lands
     const orientation = getDeviceOrientation();
     callback(orientation);
   });
+};
+
+/**
+ * Detects if the current document is in fullscreen mode
+ * @returns boolean - true if in fullscreen mode
+ */
+export const isFullscreen = (): boolean => {
+  const doc = document as unknown as FullscreenDocument;
+  return !!(doc.fullscreenElement || 
+            doc.webkitFullscreenElement || 
+            doc.mozFullScreenElement ||
+            doc.msFullscreenElement);
+};
+
+/**
+ * Request fullscreen mode for an element
+ * @param element The HTML element to make fullscreen
+ * @returns Promise that resolves when fullscreen is activated
+ */
+export const requestFullscreen = async (element: HTMLElement | null): Promise<void> => {
+  if (!element) return;
+  
+  const fullscreenElement = element as unknown as FullscreenElement;
+  
+  try {
+    if (fullscreenElement.requestFullscreen) {
+      await fullscreenElement.requestFullscreen();
+    } else if (fullscreenElement.webkitRequestFullscreen) {
+      await fullscreenElement.webkitRequestFullscreen();
+    } else if (fullscreenElement.mozRequestFullScreen) {
+      await fullscreenElement.mozRequestFullScreen();
+    } else if (fullscreenElement.msRequestFullscreen) {
+      await fullscreenElement.msRequestFullscreen();
+    }
+  } catch (error) {
+    console.error('Error attempting to enable fullscreen:', error);
+  }
+};
+
+/**
+ * Exit fullscreen mode
+ * @returns Promise that resolves when fullscreen is exited
+ */
+export const exitFullscreen = async (): Promise<void> => {
+  const doc = document as unknown as FullscreenDocument;
+  
+  try {
+    if (doc.exitFullscreen) {
+      await doc.exitFullscreen();
+    } else if (doc.webkitExitFullscreen) {
+      await doc.webkitExitFullscreen();
+    } else if (doc.mozCancelFullScreen) {
+      await doc.mozCancelFullScreen();
+    } else if (doc.msExitFullscreen) {
+      await doc.msExitFullscreen();
+    }
+  } catch (error) {
+    console.error('Error attempting to exit fullscreen:', error);
+  }
 };
 
 /**

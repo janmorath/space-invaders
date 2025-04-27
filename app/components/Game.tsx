@@ -33,7 +33,11 @@ const SHIELD_MAX_HEALTH = 100;
 const LOCAL_STORAGE_HIGH_SCORE_KEY = 'spaceInvaders_highScore';
 const WAVE_SPEED_INCREMENT = 0.2; // Speed increase per wave
 
-export default function Game() {
+interface GameProps {
+  fullscreen?: boolean;
+}
+
+export default function Game({ fullscreen = false }: GameProps) {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
@@ -244,6 +248,23 @@ export default function Game() {
       setTouchControls(touchConfig);
     }
   }, []);
+
+  // Effect to handle fullscreen mode changes
+  useEffect(() => {
+    if (fullscreen && gameContainerRef.current) {
+      // Apply fullscreen specific styling
+      const container = gameContainerRef.current;
+      
+      // Make sure controls work well in fullscreen by adjusting sensitivity
+      if (isMobileDevice) {
+        setTouchControls(prev => ({
+          ...prev,
+          sensitivity: fullscreen ? 2.0 : 1.5, // Increase sensitivity in fullscreen
+          deadzone: fullscreen ? 0.02 : 0.05,  // Reduce deadzone in fullscreen
+        }));
+      }
+    }
+  }, [fullscreen, isMobileDevice]);
 
   // Keyboard and touch input handlers
   useEffect(() => {
@@ -647,7 +668,15 @@ export default function Game() {
   return (
     <div 
       ref={gameContainerRef}
-      className="relative h-[600px] w-[800px] bg-black border-2 border-green-500 overflow-hidden select-none"
+      className={`relative h-[600px] w-[800px] bg-black border-2 border-green-500 overflow-hidden select-none ${fullscreen ? 'fullscreen-game' : ''}`}
+      style={{
+        width: `${GAME_WIDTH}px`,
+        height: `${GAME_HEIGHT}px`,
+        border: '4px solid #33ff33',
+        backgroundColor: 'black',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
     >
       {!gameStarted && !gameOver && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-green-500">
