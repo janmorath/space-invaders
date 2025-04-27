@@ -231,11 +231,11 @@ export const hasVibrationSupport = (): boolean => {
 
 /**
  * Triggers device vibration if supported
- * @param pattern Vibration pattern in milliseconds
+ * @param pattern Vibration pattern in milliseconds (single number or pattern array)
  */
-export function vibrate(duration: number = 50): void {
+export function vibrate(pattern: number | number[] = 50): void {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    navigator.vibrate(duration);
+    navigator.vibrate(pattern);
   }
 }
 
