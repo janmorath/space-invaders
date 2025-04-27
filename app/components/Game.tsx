@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Player from './Player';
 import Alien from './Alien';
 import Projectile from './Projectile';
@@ -64,26 +64,10 @@ export default function Game() {
   const touchStartXRef = useRef<number | null>(null);
   const gameContainerRef = useRef<HTMLDivElement>(null);
   
-  // Load high score from localStorage on initial render
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedHighScore = localStorage.getItem(LOCAL_STORAGE_HIGH_SCORE_KEY);
-      if (savedHighScore) {
-        setHighScore(parseInt(savedHighScore, 10));
-      }
-      
-      // Detect if using a mobile device
-      const mobileDevice = isMobile();
-      setIsMobileDevice(mobileDevice);
-      
-      // Configure touch controls
-      const touchConfig = getTouchControlsConfig();
-      setTouchControls(touchConfig);
-    }
-  }, []);
+  // Wrap functions in useCallback to avoid dependency changes on every render
   
   // Sound playback function
-  const playSound = (soundType: 'laser' | 'explosion' | 'gameover') => {
+  const playSound = useCallback((soundType: 'laser' | 'explosion' | 'gameover') => {
     if (!soundEnabled || !soundsLoaded) return;
     
     try {
@@ -101,10 +85,55 @@ export default function Game() {
     } catch (error) {
       console.error('Error playing sound:', error);
     }
-  };
+  }, [soundEnabled, soundsLoaded]);
+  
+  // Player shooting function
+  const firePlayerProjectile = useCallback(() => {
+    setProjectiles(prev => [
+      ...prev,
+      {
+        id: projectileIdRef.current++,
+        x: playerPosition.x + PLAYER_WIDTH / 2 - PROJECTILE_WIDTH / 2,
+        y: playerPosition.y,
+        isPlayer: true
+      }
+    ]);
+    shotCooldownRef.current = 500; // 500ms cooldown
+    playSound('laser');
+    
+    // Add haptic feedback for mobile devices
+    if (isMobileDevice) {
+      vibrate(15); // Short vibration for shooting
+    }
+  }, [playerPosition, isMobileDevice, playSound]);
+
+  // Haptic feedback functions
+  const playExplosionWithHaptics = useCallback(() => {
+    playSound('explosion');
+    if (isMobileDevice) {
+      vibrate(30);
+    }
+  }, [isMobileDevice, playSound]);
+  
+  const playGameOverWithHaptics = useCallback(() => {
+    playSound('gameover');
+    if (isMobileDevice) {
+      vibrate([50, 100, 50, 100, 50]);
+    }
+  }, [isMobileDevice, playSound]);
+  
+  // Update high score function
+  const updateHighScore = useCallback(() => {
+    if (score > highScore) {
+      setHighScore(score);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCAL_STORAGE_HIGH_SCORE_KEY, score.toString());
+      }
+    }
+  }, [score, highScore]);
   
   // Initialize audio context
-  const testSound = async () => {
+  const testSound = useCallback(async () => {
     try {
       const success = initAudioContext();
       if (success) {
@@ -117,26 +146,10 @@ export default function Game() {
     } catch (error) {
       console.error('Sound test failed:', error);
     }
-  };
+  }, []);
 
-  const startGame = () => {
-    // Reset game state
-    setWave(1);
-    setProjectiles([]);
-    setScore(0);
-    setGameOver(false);
-    setGameStarted(true);
-    setPlayerPosition({ x: GAME_WIDTH / 2 - PLAYER_WIDTH / 2, y: GAME_HEIGHT - PLAYER_HEIGHT - 20 });
-    setAlienDirection(1);
-    setAlienSpeed(ALIEN_SPEED);
-    setWaveCompleteMessage(false);
-    
-    // Initialize the first wave
-    initializeWave(1);
-  };
-  
   // Initialize a new wave of aliens
-  const initializeWave = (waveNumber: number) => {
+  const initializeWave = useCallback((waveNumber: number) => {
     // Clear any existing wave timeout
     if (waveTimeoutRef.current) {
       clearTimeout(waveTimeoutRef.current);
@@ -196,8 +209,43 @@ export default function Game() {
     
     // Increase alien speed with each wave
     setAlienSpeed(ALIEN_SPEED + (waveNumber - 1) * WAVE_SPEED_INCREMENT);
-  };
+  }, []);
+  
+  const startGame = useCallback(() => {
+    // Reset game state
+    setWave(1);
+    setProjectiles([]);
+    setScore(0);
+    setGameOver(false);
+    setGameStarted(true);
+    setPlayerPosition({ x: GAME_WIDTH / 2 - PLAYER_WIDTH / 2, y: GAME_HEIGHT - PLAYER_HEIGHT - 20 });
+    setAlienDirection(1);
+    setAlienSpeed(ALIEN_SPEED);
+    setWaveCompleteMessage(false);
+    
+    // Initialize the first wave
+    initializeWave(1);
+  }, [initializeWave]);
+  
+  // Load high score from localStorage on initial render
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedHighScore = localStorage.getItem(LOCAL_STORAGE_HIGH_SCORE_KEY);
+      if (savedHighScore) {
+        setHighScore(parseInt(savedHighScore, 10));
+      }
+      
+      // Detect if using a mobile device
+      const mobileDevice = isMobile();
+      setIsMobileDevice(mobileDevice);
+      
+      // Configure touch controls
+      const touchConfig = getTouchControlsConfig();
+      setTouchControls(touchConfig);
+    }
+  }, []);
 
+  // Keyboard and touch input handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' || e.key === 'a') {
@@ -299,26 +347,28 @@ export default function Game() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
-    if (touchControls.enabled && gameContainerRef.current) {
-      const container = gameContainerRef.current;
-      container.addEventListener('touchstart', handleTouchStart as EventListener);
-      container.addEventListener('touchmove', handleTouchMove as EventListener);
-      container.addEventListener('touchend', handleTouchEnd as EventListener);
+    // Store the ref in a variable to fix React Hook cleanup warning
+    const currentContainer = gameContainerRef.current;
+    
+    if (touchControls.enabled && currentContainer) {
+      currentContainer.addEventListener('touchstart', handleTouchStart as EventListener);
+      currentContainer.addEventListener('touchmove', handleTouchMove as EventListener);
+      currentContainer.addEventListener('touchend', handleTouchEnd as EventListener);
     }
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       
-      if (gameContainerRef.current) {
-        const container = gameContainerRef.current;
-        container.removeEventListener('touchstart', handleTouchStart as EventListener);
-        container.removeEventListener('touchmove', handleTouchMove as EventListener);
-        container.removeEventListener('touchend', handleTouchEnd as EventListener);
+      if (currentContainer) {
+        currentContainer.removeEventListener('touchstart', handleTouchStart as EventListener);
+        currentContainer.removeEventListener('touchmove', handleTouchMove as EventListener);
+        currentContainer.removeEventListener('touchend', handleTouchEnd as EventListener);
       }
     };
-  }, [gameStarted, touchControls.enabled, touchControls.sensitivity, touchControls.deadzone]);
+  }, [gameStarted, touchControls.enabled, touchControls.sensitivity, touchControls.deadzone, startGame]);
 
+  // Game loop
   useEffect(() => {
     if (!gameStarted) return;
 
@@ -566,17 +616,24 @@ export default function Game() {
     return () => {
       cancelAnimationFrame(gameIdRef.current);
     };
-  }, [gameStarted, gameOver, playerPosition, aliens, shields, keys, alienDirection, alienSpeed, score, soundEnabled]);
-  
-  // Update high score function
-  const updateHighScore = () => {
-    if (score > highScore) {
-      setHighScore(score);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(LOCAL_STORAGE_HIGH_SCORE_KEY, score.toString());
-      }
-    }
-  };
+  }, [
+    gameStarted, 
+    gameOver, 
+    playerPosition, 
+    aliens, 
+    shields, 
+    keys, 
+    alienDirection, 
+    alienSpeed, 
+    score, 
+    soundEnabled, 
+    wave,
+    firePlayerProjectile,
+    playExplosionWithHaptics,
+    playGameOverWithHaptics,
+    updateHighScore,
+    initializeWave
+  ]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -586,41 +643,6 @@ export default function Game() {
       }
     };
   }, []);
-
-  // Player shooting function (modified to support haptic feedback on mobile)
-  const firePlayerProjectile = () => {
-    setProjectiles(prev => [
-      ...prev,
-      {
-        id: projectileIdRef.current++,
-        x: playerPosition.x + PLAYER_WIDTH / 2 - PROJECTILE_WIDTH / 2,
-        y: playerPosition.y,
-        isPlayer: true
-      }
-    ]);
-    shotCooldownRef.current = 500; // 500ms cooldown
-    playSound('laser');
-    
-    // Add haptic feedback for mobile devices
-    if (isMobileDevice) {
-      vibrate(15); // Short vibration for shooting
-    }
-  };
-
-  // Add haptic feedback for explosion and game over
-  const playExplosionWithHaptics = () => {
-    playSound('explosion');
-    if (isMobileDevice) {
-      vibrate(30);
-    }
-  };
-  
-  const playGameOverWithHaptics = () => {
-    playSound('gameover');
-    if (isMobileDevice) {
-      vibrate([50, 100, 50, 100, 50]);
-    }
-  };
 
   return (
     <div 

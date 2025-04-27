@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,14 +15,20 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Space Invaders Game",
   description: "A classic Space Invaders game built with Next.js",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   manifest: "/manifest.json",
-  themeColor: "#000000",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Space Invaders"
   }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#000000"
 };
 
 export default function RootLayout({
@@ -32,9 +38,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black`}
       >

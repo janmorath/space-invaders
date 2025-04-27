@@ -4,6 +4,13 @@
  * and manage device-specific functionality
  */
 
+// Define an interface for Window with opera property
+interface WindowWithOpera extends Window {
+  opera?: {
+    toString: () => string;
+  };
+}
+
 /**
  * Detects if the current device is a mobile device
  * @returns boolean - true if the device is mobile, false otherwise
@@ -13,7 +20,7 @@ export const isMobile = (): boolean => {
   
   // Method 1: User agent detection
   const userAgentCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent || navigator.vendor || (window as any).opera
+    navigator.userAgent || navigator.vendor || ((window as WindowWithOpera).opera?.toString() || '')
   );
   
   // Method 2: Touch capability detection
