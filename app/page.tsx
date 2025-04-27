@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen } from './utils/device';
+import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, isFullscreen } from './utils/device';
 import OrientationWarning from './components/OrientationWarning';
 
 // Use dynamic import with SSR disabled for the Game component
@@ -15,13 +15,17 @@ export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [isIOSDevice, setIsIOSDevice] = useState(false);
+  const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const gameWrapperRef = useRef<HTMLDivElement>(null);
 
   // Check if we're on the client-side and detect mobile
   useEffect(() => {
     setIsClient(true);
     const mobile = isMobile();
+    const iOS = isIOS();
     setIsMobileDevice(mobile);
+    setIsIOSDevice(iOS);
     setOrientation(getDeviceOrientation());
 
     const handleOrientationChange = () => {
@@ -42,10 +46,18 @@ export default function Home() {
       try {
         // Prefer requesting fullscreen on the document element for better coverage
         await requestFullscreen(document.documentElement);
+        setIsFullscreenMode(true);
       } catch (error) {
         console.error('Error enabling fullscreen:', error);
       }
     };
+
+    // Check fullscreen status periodically for mobile
+    const fullscreenInterval = setInterval(() => {
+      if (mobile) {
+        setIsFullscreenMode(isFullscreen() || document.body.classList.contains('ios-fullscreen'));
+      }
+    }, 1000);
 
     // Add event listeners
     window.addEventListener('resize', handleOrientationChange);
@@ -57,6 +69,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('resize', handleOrientationChange);
       window.removeEventListener('orientationchange', handleOrientationChange);
+      clearInterval(fullscreenInterval);
     };
   }, []);
 
@@ -64,6 +77,8 @@ export default function Home() {
   const handleGameAreaClick = () => {
     if (isMobileDevice && orientation === 'landscape') {
       requestFullscreen(document.documentElement);
+      vibrate(15);
+      setIsFullscreenMode(true);
     }
   };
 
@@ -77,7 +92,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-black p-2 md:p-4">
+    <main className={`min-h-screen flex flex-col items-center justify-center bg-black p-2 md:p-4 ${isIOSDevice && orientation === 'landscape' ? 'ios-landscape' : ''}`}>
       {/* Mobile orientation warning */}
       <OrientationWarning />
       
@@ -87,7 +102,13 @@ export default function Home() {
       <div 
         ref={gameWrapperRef}
         onClick={handleGameAreaClick}
-        className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden touch-none' : ''}`}
+        onTouchStart={(e) => {
+          if (isMobileDevice && orientation === 'landscape' && !isFullscreenMode) {
+            e.preventDefault();
+            requestFullscreen(document.documentElement);
+          }
+        }}
+        className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden touch-none' : ''} ${isIOSDevice ? 'ios-game-container' : ''}`}
       >
         <div 
           className={`relative ${isMobileDevice ? 'transform-origin-top' : ''}`} 
@@ -97,7 +118,7 @@ export default function Home() {
             marginBottom: window.innerWidth < 800 ? '-200px' : '0'
           } : {}}
         >
-          <Game fullscreen={isMobileDevice && orientation === 'landscape'} />
+          <Game fullscreen={isMobileDevice && (orientation === 'landscape' || isFullscreenMode)} />
         </div>
       </div>
       
@@ -106,6 +127,19 @@ export default function Home() {
           <p>For the best experience, rotate your device to landscape mode.</p>
           <p className="mt-1">Tap to shoot, swipe to move!</p>
         </div>
+      )}
+      
+      {!isFullscreenMode && isMobileDevice && orientation === 'landscape' && (
+        <button
+          className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg font-bold game-control-button"
+          onClick={() => {
+            requestFullscreen(document.documentElement);
+            vibrate(20);
+          }}
+          onTouchStart={(e) => e.preventDefault()}
+        >
+          Enter Fullscreen
+        </button>
       )}
       
       <footer className="mt-8 text-xs text-green-500 text-center">

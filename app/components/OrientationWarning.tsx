@@ -1,11 +1,28 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen } from '../utils/device';
+import { isMobile, getDeviceOrientation, requestFullscreen, vibrate } from '../utils/device';
 
 export default function OrientationWarning() {
   const [showWarning, setShowWarning] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  
+  // Function to handle manual fullscreen request
+  const handleFullscreenRequest = async () => {
+    try {
+      // Force device rotation first
+      // We'll use a visual cue to encourage the user to rotate their device
+      setShowWarning(true);
+      vibrate([50, 100, 50]);
+      
+      // Attempt to go fullscreen after a short delay
+      setTimeout(async () => {
+        await requestFullscreen(document.documentElement);
+      }, 500);
+    } catch (error) {
+      console.error('Error requesting fullscreen:', error);
+    }
+  };
   
   useEffect(() => {
     const checkOrientation = async () => {
@@ -52,7 +69,15 @@ export default function OrientationWarning() {
     <div className="orientation-warning" ref={wrapperRef}>
       <div className="orientation-warning-icon">⟳</div>
       <h2 className="text-2xl font-bold mb-4">Please Rotate Your Device</h2>
-      <p>For the best Space Invaders experience, please rotate your device to landscape mode.</p>
+      <p className="mb-6">For the best Space Invaders experience, please rotate your device to landscape mode.</p>
+      
+      <button 
+        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-bold game-control-button"
+        onClick={handleFullscreenRequest}
+        onTouchStart={(e) => e.preventDefault()}
+      >
+        Rotate & Go Fullscreen
+      </button>
     </div>
   );
 } 

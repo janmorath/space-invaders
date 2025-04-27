@@ -317,10 +317,15 @@ export default function Game({ fullscreen = false }: GameProps) {
         // Touch in shooting area - fire
         setKeys(prev => ({ ...prev, space: true }));
         
-        // Add slight delay before releasing the space key
+        // Add slight delay before releasing the space key to ensure it's registered
         setTimeout(() => {
           setKeys(prev => ({ ...prev, space: false }));
         }, 100);
+        
+        // Add haptic feedback for shooting
+        if (isMobileDevice) {
+          vibrate(15);
+        }
       }
     };
     
@@ -714,8 +719,12 @@ export default function Game({ fullscreen = false }: GameProps) {
           
           {isMobileDevice && (
             <button 
-              onClick={startGame} 
-              className="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold"
+              onClick={() => {
+                startGame();
+                vibrate(30);
+              }}
+              onTouchStart={(e) => e.preventDefault()}
+              className="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold game-control-button"
             >
               START GAME
             </button>
@@ -787,16 +796,31 @@ export default function Game({ fullscreen = false }: GameProps) {
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute bottom-0 left-0 w-full h-20 bg-black bg-opacity-20 flex items-center justify-between px-4">
                 <button 
-                  className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-3xl font-bold"
-                  onClick={() => setKeys(prev => ({ ...prev, space: true }))}
-                  onTouchEnd={() => setKeys(prev => ({ ...prev, space: false }))}
+                  className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-3xl font-bold game-control-button"
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    setKeys(prev => ({ ...prev, space: true }));
+                    vibrate(15);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setKeys(prev => ({ ...prev, space: false }));
+                  }}
+                  onClick={() => {
+                    setKeys(prev => ({ ...prev, space: true }));
+                    setTimeout(() => setKeys(prev => ({ ...prev, space: false })), 100);
+                    vibrate(15);
+                  }}
                 >
                   🔫
                 </button>
                 
                 <button 
-                  className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-xl font-bold"
-                  onClick={() => setSoundEnabled(prev => !prev)}
+                  className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-xl font-bold game-control-button"
+                  onClick={() => {
+                    setSoundEnabled(prev => !prev);
+                    vibrate(20);
+                  }}
                 >
                   {soundEnabled ? '🔊' : '🔇'}
                 </button>

@@ -9,6 +9,27 @@ interface WindowWithOpera extends Window {
   opera?: {
     toString: () => string;
   };
+  MSStream?: any; // For IE detection
+}
+
+// Define orientation lock types
+type OrientationLockType = 
+  | 'any'
+  | 'natural'
+  | 'landscape'
+  | 'portrait'
+  | 'portrait-primary'
+  | 'portrait-secondary'
+  | 'landscape-primary'
+  | 'landscape-secondary';
+
+// Create custom screen interface without extending the built-in one
+interface CustomScreen {
+  orientation?: {
+    lock?: (orientation: OrientationLockType) => Promise<void>;
+    type?: string;
+    angle?: number;
+  };
 }
 
 // Fullscreen API has cross-browser variations
@@ -58,6 +79,23 @@ export const isMobile = (): boolean => {
 };
 
 /**
+ * Detects if the current device is running iOS
+ * @returns boolean - true if the device is using iOS, false otherwise
+ */
+export const isIOS = (): boolean => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && 
+         !(window as WindowWithOpera).MSStream; // Excludes IE11
+};
+
+/**
+ * Detects if the device is an iPhone
+ * @returns boolean - true if the device is an iPhone, false otherwise
+ */
+export const isIPhone = (): boolean => {
+  return /iPhone/.test(navigator.userAgent) && !(window as WindowWithOpera).MSStream;
+};
+
+/**
  * Gets the current device orientation
  * @returns 'portrait' | 'landscape' - The current orientation
  */
@@ -99,6 +137,30 @@ export const requestFullscreen = async (element: HTMLElement | null): Promise<vo
   const fullscreenElement = element as unknown as FullscreenElement;
   
   try {
+    // Special case for iOS Safari which doesn't support true fullscreen API
+    if (isIOS()) {
+      // On iOS, we'll rely on CSS for a fullscreen-like experience
+      document.body.classList.add('ios-fullscreen');
+      
+      // Force orientation to landscape on iOS if possible
+      try {
+        const customScreen = window.screen as unknown as CustomScreen;
+        if (customScreen.orientation && customScreen.orientation.lock) {
+          await customScreen.orientation.lock('landscape');
+        }
+      } catch (error) {
+        console.log('Could not lock orientation: ', error);
+      }
+      
+      // Hide browser UI by scrolling
+      setTimeout(() => {
+        window.scrollTo(0, 1);
+      }, 300);
+      
+      return;
+    }
+    
+    // Try standard fullscreen API with fallbacks
     if (fullscreenElement.requestFullscreen) {
       await fullscreenElement.requestFullscreen();
     } else if (fullscreenElement.webkitRequestFullscreen) {
@@ -110,6 +172,14 @@ export const requestFullscreen = async (element: HTMLElement | null): Promise<vo
     }
   } catch (error) {
     console.error('Error attempting to enable fullscreen:', error);
+    
+    // Fallback: Add fullscreen class if fullscreen API fails
+    document.body.classList.add('fullscreen-fallback');
+    
+    // Hide browser UI by scrolling
+    setTimeout(() => {
+      window.scrollTo(0, 1);
+    }, 300);
   }
 };
 
@@ -118,6 +188,9 @@ export const requestFullscreen = async (element: HTMLElement | null): Promise<vo
  * @returns Promise that resolves when fullscreen is exited
  */
 export const exitFullscreen = async (): Promise<void> => {
+  // Remove iOS and fallback classes first
+  document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
+  
   const doc = document as unknown as FullscreenDocument;
   
   try {
@@ -159,11 +232,12 @@ export const isLowPerformanceDevice = (): boolean => {
  */
 export const getTouchControlsConfig = () => {
   const isDeviceMobile = isMobile();
+  const iOS = isIOS();
   
   return {
     enabled: isDeviceMobile,
-    sensitivity: isDeviceMobile ? 1.5 : 1.0,
-    deadzone: 0.05,
+    sensitivity: isDeviceMobile ? (iOS ? 2.0 : 1.5) : 1.0, // Higher sensitivity for iOS
+    deadzone: iOS ? 0.03 : 0.05, // Lower deadzone for iOS
   };
 };
 
