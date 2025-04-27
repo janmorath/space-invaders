@@ -249,6 +249,67 @@ body {
     pointer-events: auto !important;
     touch-action: auto !important;
   }
+
+  /* iOS browser UI hiding technique */
+  html {
+    height: 100vh !important;
+    /* Trick to hide address bar */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Full viewport with iOS safe-area adjustments */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 140vh; /* Extend beyond viewport to force UI hiding */
+    background-color: black;
+    z-index: -1;
+  }
+  
+  /* Set minimal-ui for iOS */
+  @supports (-webkit-touch-callout: none) {
+    html {
+      position: fixed;
+      width: 100%;
+      overflow: hidden;
+    }
+    
+    /* Force scrolling to hide UI */
+    body {
+      position: absolute;
+      top: -1px; /* Trick to force scrolling behavior */
+      width: 100%;
+      height: 101vh;
+      overflow: hidden;
+    }
+  }
+  
+  /* Fixed positioning for game container */
+  .game-container, #game-wrapper {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1000 !important;
+  }
+  
+  /* This trick combined with minimal-ui helps hide UI */
+  .minimal-ui-helper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    opacity: 0;
+    z-index: -999;
+  }
 }
 
 /* Only apply these styles in portrait mode */

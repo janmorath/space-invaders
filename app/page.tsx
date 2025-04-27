@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
 import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, exitFullscreen, isFullscreen } from './utils/device';
 import OrientationWarning from './components/OrientationWarning';
+import HomeScreenPrompt from './components/HomeScreenPrompt';
 
 // Use dynamic import with SSR disabled for the Game component
 // because it uses browser APIs like requestAnimationFrame
@@ -11,11 +12,17 @@ const Game = dynamic(() => import('./components/Game'), {
   ssr: false,
 });
 
+// Custom interface for Navigator to include standalone property
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
+}
+
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [isIOSDevice, setIsIOSDevice] = useState(false);
+  const [isFromHomeScreen, setIsFromHomeScreen] = useState(false);
   const gameWrapperRef = useRef<HTMLDivElement>(null);
 
   // Check if we're on the client-side and detect mobile
@@ -24,6 +31,15 @@ export default function Home() {
     const mobile = isMobile();
     const iOS = isIOS();
     const currentOrientation = getDeviceOrientation();
+    
+    // Check if launched from homescreen or with fullscreen parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const fullscreenRequested = urlParams.get('fullscreen') === 'true';
+    const isStandalone = (window.navigator as NavigatorWithStandalone).standalone || 
+                        window.matchMedia('(display-mode: standalone)').matches ||
+                        window.matchMedia('(display-mode: fullscreen)').matches;
+    
+    setIsFromHomeScreen(isStandalone || fullscreenRequested);
     
     setIsMobileDevice(mobile);
     setIsIOSDevice(iOS);
@@ -34,9 +50,74 @@ export default function Home() {
       iOS, 
       orientation: currentOrientation,
       isFullscreen: isFullscreen(),
+      isStandalone,
+      fullscreenRequested,
       screenWidth: window.innerWidth,
       screenHeight: window.innerHeight
     });
+
+    // If launched from homescreen, immediately try to go fullscreen
+    if (isStandalone || fullscreenRequested) {
+      setTimeout(() => {
+        requestFullscreen(document.documentElement);
+        document.body.classList.add('ios-fullscreen');
+        
+        // More aggressive scrolling
+        for (let i = 0; i < 20; i++) {
+          setTimeout(() => {
+            window.scrollTo(0, 1);
+          }, i * 50);
+        }
+      }, 100);
+    }
+
+    // Special handling for iOS Safari
+    if (iOS) {
+      // Try to hide the URL bar using the minimal-ui approach
+      setTimeout(() => {
+        window.scrollTo(0, 1);
+      }, 50);
+      
+      // Use a special technique for iOS Safari to hide chrome
+      if (currentOrientation === 'landscape') {
+        document.documentElement.style.position = 'fixed';
+        document.documentElement.style.width = '100%';
+        document.documentElement.style.height = '100%';
+        document.documentElement.style.overflow = 'hidden';
+        
+        // Force iOS to use hardware acceleration
+        document.body.style.transform = 'translate3d(0,0,0)';
+        document.body.style.height = '100%';
+        document.body.style.width = '100%';
+        
+        // Make the document slightly taller than the viewport
+        // This is a trick that can help hide the URL bar
+        const scrollHelper = document.createElement('div');
+        scrollHelper.style.position = 'absolute';
+        scrollHelper.style.height = '200%';
+        scrollHelper.style.width = '100%';
+        scrollHelper.style.pointerEvents = 'none';
+        scrollHelper.style.top = '0';
+        scrollHelper.style.left = '0';
+        scrollHelper.style.zIndex = '-1000';
+        scrollHelper.style.opacity = '0';
+        document.body.appendChild(scrollHelper);
+        
+        // Try multiple times to hide the URL bar
+        for (let i = 0; i < 10; i++) {
+          setTimeout(() => {
+            window.scrollTo(0, 1);
+          }, 100 + (i * 50));
+        }
+        
+        // Clean up the helper after use
+        setTimeout(() => {
+          if (document.body.contains(scrollHelper)) {
+            document.body.removeChild(scrollHelper);
+          }
+        }, 2000);
+      }
+    }
 
     const handleOrientationChange = async () => {
       const newOrientation = getDeviceOrientation();
@@ -205,6 +286,9 @@ export default function Home() {
           <p>Classic Space Invaders - A Next.js Game</p>
         </footer>
       ) : null}
+
+      {/* Show homescreen prompt for mobile devices */}
+      {isMobileDevice && !isFromHomeScreen && <HomeScreenPrompt />}
     </main>
   );
 }

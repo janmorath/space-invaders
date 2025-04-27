@@ -45,6 +45,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, minimal-ui" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#000000" />
+        <meta name="apple-touch-fullscreen" content="yes" />
         
         {/* Special script to handle mobile fullscreen with multiple techniques */}
         <script dangerouslySetInnerHTML={{
@@ -69,9 +70,9 @@ export default function RootLayout({
                 document.body.classList.add('ios-fullscreen');
                 
                 // Multiple scroll attempts to hide browser UI
-                for (let i = 0; i < 5; i++) {
+                for (let i = 0; i < 10; i++) {
                   setTimeout(() => {
-                    window.scrollTo(0, 1);
+                    window.scrollTo(0, i % 2 === 0 ? 1 : 0);
                   }, i * 100); // Try multiple times with increasing delay
                 }
                 
@@ -101,6 +102,15 @@ export default function RootLayout({
                 } catch (e) {
                   console.warn('Could not request fullscreen:', e);
                 }
+                
+                // Very aggressive scrolling trick for iOS
+                const maxScrolls = 20;
+                for (let i = 0; i < maxScrolls; i++) {
+                  setTimeout(() => {
+                    const scrollY = i % 2 === 0 ? 1 : 0;
+                    window.scrollTo(0, scrollY);
+                  }, 500 + (i * 50));
+                }
               }
             }
             
@@ -114,6 +124,27 @@ export default function RootLayout({
               setTimeout(handleFullscreen, 100);
               setTimeout(handleFullscreen, 500);
               setTimeout(handleFullscreen, 1000);
+              
+              // Very aggressive scrolling to hide address bar in iOS
+              setTimeout(() => {
+                // Create a div that forces the page to be scrollable
+                const scrollHelper = document.createElement('div');
+                scrollHelper.style.position = 'absolute';
+                scrollHelper.style.height = '200%';
+                scrollHelper.style.width = '100%';
+                scrollHelper.style.pointerEvents = 'none';
+                scrollHelper.style.opacity = '0';
+                scrollHelper.style.zIndex = '-1000';
+                document.body.appendChild(scrollHelper);
+                
+                // Force scroll
+                window.scrollTo(0, 1);
+                
+                // Remove the helper after use
+                setTimeout(() => {
+                  document.body.removeChild(scrollHelper);
+                }, 1500);
+              }, 1200);
             }
           `
         }} />
@@ -121,6 +152,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black`}
       >
+        <div className="minimal-ui-helper"></div>
         {children}
       </body>
     </html>
