@@ -28,12 +28,12 @@ export default function HomeScreenPrompt() {
         {isIOSDevice ? (
           <>
             <p>1. Tap the share button <span className="text-lg">⤴</span></p>
-            <p>2. Select "Add to Home Screen" <span className="text-lg">+</span></p>
+            <p>2. Select &quot;Add to Home Screen&quot; <span className="text-lg">+</span></p>
           </>
         ) : (
           <>
             <p>1. Open browser menu <span className="text-lg">⋮</span></p>
-            <p>2. Select "Add to Home screen" <span className="text-lg">+</span></p>
+            <p>2. Select &quot;Add to Home screen&quot; <span className="text-lg">+</span></p>
           </>
         )}
       </div>
