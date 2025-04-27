@@ -7,44 +7,32 @@ export default function OrientationWarning() {
   const [showWarning, setShowWarning] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   
-  // Function to handle manual fullscreen request
-  const handleFullscreenRequest = async () => {
-    try {
-      // Encourage the user to rotate their device
-      vibrate([50, 100, 50]);
-      
-      // Hide the warning
-      setShowWarning(false);
-    } catch (error) {
-      console.error('Error requesting fullscreen:', error);
-    }
-  };
-  
   useEffect(() => {
     const checkOrientation = async () => {
       const isMobileDevice = isMobile();
       const orientation = getDeviceOrientation();
       
-      // Show warning if portrait, hide if landscape
+      // Only show warning in portrait mode
       if (isMobileDevice && orientation === 'portrait') {
         setShowWarning(true);
         
-        // Exit fullscreen when in portrait mode
+        // Exit fullscreen when in portrait
         try {
           await exitFullscreen();
+          document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
         } catch (error) {
           console.log('Error exiting fullscreen:', error);
         }
       } else {
+        // Hide warning and enter fullscreen when in landscape
         setShowWarning(false);
         
-        // Go fullscreen when in landscape mode
         if (isMobileDevice && orientation === 'landscape') {
           try {
-            // Use a timeout to ensure the orientation change is complete
-            setTimeout(async () => {
-              await requestFullscreen(document.documentElement);
-            }, 500);
+            // Force fullscreen on landscape orientation
+            await requestFullscreen(document.documentElement);
+            // Give haptic feedback when entering fullscreen
+            vibrate(30);
           } catch (error) {
             console.error('Error enabling fullscreen:', error);
           }
@@ -71,15 +59,7 @@ export default function OrientationWarning() {
     <div className="orientation-warning" ref={wrapperRef}>
       <div className="orientation-warning-icon">⟳</div>
       <h2 className="text-2xl font-bold mb-4">Please Rotate Your Device</h2>
-      <p className="mb-6">For the best Space Invaders experience, please rotate your device to landscape mode.</p>
-      
-      <button 
-        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-bold game-control-button"
-        onClick={handleFullscreenRequest}
-        onTouchStart={(e) => e.preventDefault()}
-      >
-        Rotate & Go Fullscreen
-      </button>
+      <p>For the best Space Invaders experience, please rotate your device to landscape mode.</p>
     </div>
   );
 } 

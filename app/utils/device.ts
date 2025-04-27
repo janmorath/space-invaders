@@ -51,45 +51,70 @@ interface FullscreenElement {
   msRequestFullscreen?: () => Promise<void>;
 }
 
+// Type definitions
+interface NavigatorWithUserAgentData extends Navigator {
+  userAgentData?: {
+    mobile: boolean;
+    // Other properties might exist but we only need mobile for now
+  };
+}
+
 /**
  * Detects if the current device is a mobile device
  * @returns boolean - true if the device is mobile, false otherwise
  */
-export const isMobile = (): boolean => {
-  // Use multiple detection methods for better accuracy
+export function isMobile(): boolean {
+  if (typeof window === 'undefined') return false;
   
-  // Method 1: User agent detection
-  const userAgentCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent || navigator.vendor || ((window as WindowWithOpera).opera?.toString() || '')
-  );
+  // Check with userAgent (most reliable)
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const mobileRegex = /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i;
   
-  // Method 2: Touch capability detection
-  const touchCheck = (
-    'ontouchstart' in window || 
-    navigator.maxTouchPoints > 0
-  );
+  if (mobileRegex.test(userAgent)) {
+    return true;
+  }
   
-  // Method 3: Screen size detection
-  const screenCheck = window.innerWidth <= 768;
+  // Check with userAgentData API (newer browsers)
+  const nav = navigator as NavigatorWithUserAgentData;
+  if (nav.userAgentData && nav.userAgentData.mobile) {
+    return true;
+  }
   
-  // Consider a device mobile if at least two of these checks are true
-  const checkCount = [userAgentCheck, touchCheck, screenCheck].filter(Boolean).length;
+  // Feature detection fallback
+  if ('maxTouchPoints' in navigator) {
+    return navigator.maxTouchPoints > 0;
+  }
   
-  return checkCount >= 2;
-};
+  // Screen size check as last resort
+  const mobileScreenWidth = 768;
+  if (window.innerWidth <= mobileScreenWidth) {
+    return true;
+  }
+  
+  return false;
+}
 
 /**
  * Detects if the current device is running iOS
  * @returns boolean - true if the device is using iOS, false otherwise
  */
-export const isIOS = (): boolean => {
-  // More reliable iOS detection
-  const userAgent = navigator.userAgent.toLowerCase();
-  return /iphone|ipad|ipod/.test(userAgent) && 
-         !(window as WindowWithOpera).MSStream && 
-         // Additional check for iOS Safari
-         ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 0);
-};
+export function isIOS(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  
+  // Check for iOS devices including iPad (which may report as desktop in newer iOS)
+  if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
+    return true;
+  }
+  
+  // iPad detection for iOS 13+ which reports as Mac
+  if (/Mac OS/.test(userAgent) && 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 0) {
+    return true;
+  }
+  
+  return false;
+}
 
 /**
  * Detects if the device is an iPhone
@@ -103,11 +128,18 @@ export const isIPhone = (): boolean => {
  * Gets the current device orientation
  * @returns 'portrait' | 'landscape' - The current orientation
  */
-export const getDeviceOrientation = (): 'portrait' | 'landscape' => {
-  // Simplify orientation detection - this is more reliable
-  // Check width vs height since that's the true indicator regardless of device API
-  return window.innerWidth < window.innerHeight ? 'portrait' : 'landscape';
-};
+export function getDeviceOrientation(): 'portrait' | 'landscape' {
+  if (typeof window === 'undefined') return 'portrait';
+  
+  // Use screen orientation API if available
+  if (window.screen && window.screen.orientation) {
+    const angle = window.screen.orientation.angle;
+    return (angle === 0 || angle === 180) ? 'portrait' : 'landscape';
+  }
+  
+  // Fallback to window dimensions
+  return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+}
 
 /**
  * Hook for handling device orientation changes
@@ -124,95 +156,78 @@ export const useOrientationChange = (callback: (orientation: 'portrait' | 'lands
  * Detects if the current document is in fullscreen mode
  * @returns boolean - true if in fullscreen mode
  */
-export const isFullscreen = (): boolean => {
-  const doc = document as unknown as FullscreenDocument;
-  return !!(doc.fullscreenElement || 
-            doc.webkitFullscreenElement || 
-            doc.mozFullScreenElement ||
-            doc.msFullscreenElement);
-};
+export function isFullscreen(): boolean {
+  return !!(
+    document.fullscreenElement ||
+    (document as any).webkitFullscreenElement ||
+    (document as any).mozFullScreenElement ||
+    (document as any).msFullscreenElement ||
+    document.body.classList.contains('ios-fullscreen') ||
+    document.body.classList.contains('fullscreen-fallback')
+  );
+}
 
 /**
  * Request fullscreen mode for an element
  * @param element The HTML element to make fullscreen
  * @returns Promise that resolves when fullscreen is activated
  */
-export const requestFullscreen = async (element: HTMLElement | null): Promise<void> => {
-  if (!element) return;
-  
-  const fullscreenElement = element as unknown as FullscreenElement;
+export async function requestFullscreen(element: HTMLElement = document.documentElement): Promise<void> {
+  // Don't attempt fullscreen if already in fullscreen mode
+  if (isFullscreen()) {
+    return;
+  }
   
   try {
-    // Special case for iOS Safari which doesn't support true fullscreen API
-    if (isIOS()) {
-      // On iOS, we'll rely on CSS for a fullscreen-like experience
-      document.body.classList.add('ios-fullscreen');
-      
-      // Force orientation to landscape on iOS if possible
-      try {
-        const customScreen = window.screen as unknown as CustomScreen;
-        if (customScreen.orientation && customScreen.orientation.lock) {
-          await customScreen.orientation.lock('landscape');
-        }
-      } catch (error) {
-        console.log('Could not lock orientation: ', error);
-      }
-      
-      // Hide browser UI by scrolling
-      setTimeout(() => {
-        window.scrollTo(0, 1);
-      }, 300);
-      
-      return;
+    if (element.requestFullscreen) {
+      await element.requestFullscreen();
+    } else if ((element as any).webkitRequestFullscreen) {
+      await (element as any).webkitRequestFullscreen();
+    } else if ((element as any).msRequestFullscreen) {
+      await (element as any).msRequestFullscreen();
+    } else if ((element as any).mozRequestFullScreen) {
+      await (element as any).mozRequestFullScreen();
     }
     
-    // Try standard fullscreen API with fallbacks
-    if (fullscreenElement.requestFullscreen) {
-      await fullscreenElement.requestFullscreen();
-    } else if (fullscreenElement.webkitRequestFullscreen) {
-      await fullscreenElement.webkitRequestFullscreen();
-    } else if (fullscreenElement.mozRequestFullScreen) {
-      await fullscreenElement.mozRequestFullScreen();
-    } else if (fullscreenElement.msRequestFullscreen) {
-      await fullscreenElement.msRequestFullscreen();
+    // Add iOS fullscreen fallback
+    if (isIOS()) {
+      document.body.classList.add('ios-fullscreen');
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 100);
+      vibrate(15);
     }
   } catch (error) {
-    console.error('Error attempting to enable fullscreen:', error);
-    
-    // Fallback: Add fullscreen class if fullscreen API fails
+    console.error('Fullscreen request failed:', error);
+    // Add fallback class for devices that don't support fullscreen
     document.body.classList.add('fullscreen-fallback');
-    
-    // Hide browser UI by scrolling
-    setTimeout(() => {
-      window.scrollTo(0, 1);
-    }, 300);
   }
-};
+}
 
 /**
  * Exit fullscreen mode
  * @returns Promise that resolves when fullscreen is exited
  */
-export const exitFullscreen = async (): Promise<void> => {
-  // Remove iOS and fallback classes first
-  document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
-  
-  const doc = document as unknown as FullscreenDocument;
-  
+export async function exitFullscreen(): Promise<void> {
   try {
-    if (doc.exitFullscreen) {
-      await doc.exitFullscreen();
-    } else if (doc.webkitExitFullscreen) {
-      await doc.webkitExitFullscreen();
-    } else if (doc.mozCancelFullScreen) {
-      await doc.mozCancelFullScreen();
-    } else if (doc.msExitFullscreen) {
-      await doc.msExitFullscreen();
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    } else if ((document as any).webkitExitFullscreen) {
+      await (document as any).webkitExitFullscreen();
+    } else if ((document as any).msExitFullscreen) {
+      await (document as any).msExitFullscreen();
+    } else if ((document as any).mozCancelFullScreen) {
+      await (document as any).mozCancelFullScreen();
     }
+    
+    // Remove iOS fallback classes
+    document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
   } catch (error) {
-    console.error('Error attempting to exit fullscreen:', error);
+    console.error('Exit fullscreen failed:', error);
+    // Still remove the classes in case of error
+    document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
   }
-};
+}
 
 /**
  * Detects if the device is in low-performance mode
@@ -259,8 +274,37 @@ export const hasVibrationSupport = (): boolean => {
  * Triggers device vibration if supported
  * @param pattern Vibration pattern in milliseconds
  */
-export const vibrate = (pattern: number | number[]): void => {
-  if (hasVibrationSupport()) {
-    navigator.vibrate(pattern);
+export function vibrate(duration: number = 50): void {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(duration);
   }
-}; 
+}
+
+/**
+ * Check if the device supports the Notification API
+ */
+export function supportsNotifications(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
+/**
+ * Request notification permissions
+ */
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (!supportsNotifications()) {
+    return 'denied';
+  }
+  
+  return await Notification.requestPermission();
+}
+
+/**
+ * Send a notification to the user
+ */
+export function sendNotification(title: string, options?: NotificationOptions): Notification | null {
+  if (!supportsNotifications() || Notification.permission !== 'granted') {
+    return null;
+  }
+  
+  return new Notification(title, options);
+} 
