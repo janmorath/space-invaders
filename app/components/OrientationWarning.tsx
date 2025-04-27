@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen, vibrate, exitFullscreen } from '../utils/device';
+import { isMobile, getDeviceOrientation, requestFullscreen, vibrate, exitFullscreen, isFullscreen } from '../utils/device';
 
 export default function OrientationWarning() {
   const [showWarning, setShowWarning] = useState(false);
@@ -12,12 +12,15 @@ export default function OrientationWarning() {
       const isMobileDevice = isMobile();
       const orientation = getDeviceOrientation();
       
+      console.log('OrientationWarning - Detected:', { isMobileDevice, orientation, isFullscreen: isFullscreen() });
+      
       // Only show warning in portrait mode
       if (isMobileDevice && orientation === 'portrait') {
         setShowWarning(true);
         
         // Exit fullscreen when in portrait
         try {
+          console.log('OrientationWarning - Exiting fullscreen in portrait mode');
           await exitFullscreen();
           document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
         } catch (error) {
@@ -29,10 +32,16 @@ export default function OrientationWarning() {
         
         if (isMobileDevice && orientation === 'landscape') {
           try {
-            // Force fullscreen on landscape orientation
-            await requestFullscreen(document.documentElement);
-            // Give haptic feedback when entering fullscreen
-            vibrate(30);
+            // Check if already in fullscreen before attempting
+            if (!isFullscreen()) {
+              console.log('OrientationWarning - Entering fullscreen in landscape mode');
+              // Force fullscreen on landscape orientation
+              await requestFullscreen(document.documentElement);
+              // Give haptic feedback when entering fullscreen
+              vibrate(30);
+            } else {
+              console.log('OrientationWarning - Already in fullscreen mode');
+            }
           } catch (error) {
             console.error('Error enabling fullscreen:', error);
           }
@@ -47,9 +56,15 @@ export default function OrientationWarning() {
     window.addEventListener('resize', checkOrientation);
     window.addEventListener('orientationchange', checkOrientation);
     
+    // Re-check a moment after load to ensure proper detection
+    const timeoutId = setTimeout(() => {
+      checkOrientation();
+    }, 1000);
+    
     return () => {
       window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('orientationchange', checkOrientation);
+      clearTimeout(timeoutId);
     };
   }, []);
   

@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, exitFullscreen } from './utils/device';
+import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, exitFullscreen, isFullscreen } from './utils/device';
 import OrientationWarning from './components/OrientationWarning';
 
 // Use dynamic import with SSR disabled for the Game component
@@ -23,25 +23,61 @@ export default function Home() {
     setIsClient(true);
     const mobile = isMobile();
     const iOS = isIOS();
+    const currentOrientation = getDeviceOrientation();
+    
     setIsMobileDevice(mobile);
     setIsIOSDevice(iOS);
-    setOrientation(getDeviceOrientation());
+    setOrientation(currentOrientation);
+    
+    console.log('Home - Initial state:', { 
+      mobile, 
+      iOS, 
+      orientation: currentOrientation,
+      isFullscreen: isFullscreen(),
+      screenWidth: window.innerWidth,
+      screenHeight: window.innerHeight
+    });
 
     const handleOrientationChange = async () => {
       const newOrientation = getDeviceOrientation();
       setOrientation(newOrientation);
       
+      console.log('Home - Orientation changed:', { 
+        newOrientation, 
+        width: window.innerWidth, 
+        height: window.innerHeight,
+        isFullscreen: isFullscreen()
+      });
+      
       if (mobile) {
         // Apply fullscreen in landscape mode
         if (newOrientation === 'landscape') {
-          console.log('Landscape detected, requesting fullscreen');
-          // Force fullscreen on landscape orientation
-          await requestFullscreen(document.documentElement);
+          console.log('Home - Landscape detected, requesting fullscreen');
+          
+          // Only request fullscreen if not already in fullscreen
+          if (!isFullscreen()) {
+            // Force fullscreen on landscape orientation
+            try {
+              await requestFullscreen(document.documentElement);
+              // Add body class to ensure proper styling
+              document.body.classList.add('ios-fullscreen');
+              vibrate(20);
+            } catch (error) {
+              console.error('Error requesting fullscreen:', error);
+              // Fallback if fullscreen fails
+              document.body.classList.add('fullscreen-fallback');
+            }
+          }
         } 
         // Exit fullscreen in portrait mode
         else if (newOrientation === 'portrait') {
-          console.log('Portrait detected, exiting fullscreen');
-          await exitFullscreen();
+          console.log('Home - Portrait detected, exiting fullscreen');
+          try {
+            await exitFullscreen();
+            document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
+          } catch (error) {
+            console.error('Error exiting fullscreen:', error);
+          }
         }
       }
     };
@@ -54,6 +90,11 @@ export default function Home() {
     setTimeout(() => {
       handleOrientationChange();
     }, 500);
+    
+    // And another check a bit later to ensure proper detection
+    setTimeout(() => {
+      handleOrientationChange();
+    }, 1500);
 
     return () => {
       window.removeEventListener('resize', handleOrientationChange);
@@ -69,10 +110,18 @@ export default function Home() {
     }
     
     // Try to enter fullscreen on game area click in landscape mode
-    if (isMobileDevice && orientation === 'landscape') {
-      console.log('Game area clicked in landscape, requesting fullscreen');
-      await requestFullscreen(document.documentElement);
-      vibrate(15);
+    if (isMobileDevice && orientation === 'landscape' && !isFullscreen()) {
+      console.log('Home - Game area clicked in landscape, requesting fullscreen');
+      try {
+        await requestFullscreen(document.documentElement);
+        // Add body class to ensure proper styling
+        document.body.classList.add('ios-fullscreen');
+        vibrate(15);
+      } catch (error) {
+        console.error('Error requesting fullscreen on click:', error);
+        // Fallback if fullscreen fails
+        document.body.classList.add('fullscreen-fallback');
+      }
     }
   };
 
@@ -105,8 +154,14 @@ export default function Home() {
           }
           
           // Try to enter fullscreen on touch in landscape mode
-          if (isMobileDevice && orientation === 'landscape') {
-            requestFullscreen(document.documentElement);
+          if (isMobileDevice && orientation === 'landscape' && !isFullscreen()) {
+            try {
+              requestFullscreen(document.documentElement);
+              document.body.classList.add('ios-fullscreen');
+            } catch (error) {
+              console.error('Error requesting fullscreen on touch:', error);
+              document.body.classList.add('fullscreen-fallback');
+            }
           }
         }}
         className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden' : ''} ${isIOSDevice ? 'ios-game-container' : ''} ${orientation === 'landscape' ? 'fullscreen-container' : ''}`}

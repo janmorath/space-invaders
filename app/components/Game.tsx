@@ -252,6 +252,7 @@ export default function Game({ fullscreen = false }: GameProps) {
   // Effect to handle fullscreen mode changes
   useEffect(() => {
     if (fullscreen && gameContainerRef.current) {
+      console.log('Game - Detected fullscreen mode change:', { fullscreen, isMobileDevice });
       // Make sure controls work well in fullscreen by adjusting sensitivity
       if (isMobileDevice) {
         setTouchControls(prev => ({
@@ -259,9 +260,15 @@ export default function Game({ fullscreen = false }: GameProps) {
           sensitivity: fullscreen ? 2.0 : 1.5, // Increase sensitivity in fullscreen
           deadzone: fullscreen ? 0.02 : 0.05,  // Reduce deadzone in fullscreen
         }));
+        
+        // Auto-initialize sound in fullscreen mode for better user experience
+        if (soundEnabled && !soundsLoaded) {
+          console.log('Game - Auto-initializing sound in fullscreen mode');
+          testSound();
+        }
       }
     }
-  }, [fullscreen, isMobileDevice]);
+  }, [fullscreen, isMobileDevice, testSound, soundEnabled, soundsLoaded]);
 
   // Keyboard and touch input handlers
   useEffect(() => {
