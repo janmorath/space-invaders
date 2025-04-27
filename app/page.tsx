@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, isFullscreen } from './utils/device';
+import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, isFullscreen, exitFullscreen } from './utils/device';
 import OrientationWarning from './components/OrientationWarning';
 
 // Use dynamic import with SSR disabled for the Game component
@@ -28,25 +28,39 @@ export default function Home() {
     setIsIOSDevice(iOS);
     setOrientation(getDeviceOrientation());
 
-    const handleOrientationChange = () => {
+    const handleOrientationChange = async () => {
       const newOrientation = getDeviceOrientation();
       setOrientation(newOrientation);
       
-      // If on mobile and switched to landscape, try to go fullscreen
-      if (mobile && newOrientation === 'landscape') {
-        // Wait a moment for the orientation change to complete
-        setTimeout(() => {
-          handleFullscreen();
-        }, 300);
+      if (mobile) {
+        // If on mobile and switched to landscape, try to go fullscreen
+        if (newOrientation === 'landscape') {
+          // Wait a moment for the orientation change to complete
+          setTimeout(() => {
+            handleFullscreen();
+          }, 500);
+        } else if (newOrientation === 'portrait') {
+          // If on mobile and switched to portrait, exit fullscreen
+          try {
+            await exitFullscreen();
+            setIsFullscreenMode(false);
+            document.body.classList.remove('ios-fullscreen');
+          } catch (error) {
+            console.error('Error exiting fullscreen:', error);
+          }
+        }
       }
     };
 
     // Function to handle fullscreen request
     const handleFullscreen = async () => {
       try {
-        // Prefer requesting fullscreen on the document element for better coverage
-        await requestFullscreen(document.documentElement);
-        setIsFullscreenMode(true);
+        // Only request fullscreen if we're not already in fullscreen
+        if (!isFullscreen() && !document.body.classList.contains('ios-fullscreen')) {
+          // Prefer requesting fullscreen on the document element for better coverage
+          await requestFullscreen(document.documentElement);
+          setIsFullscreenMode(true);
+        }
       } catch (error) {
         console.error('Error enabling fullscreen:', error);
       }
@@ -55,7 +69,8 @@ export default function Home() {
     // Check fullscreen status periodically for mobile
     const fullscreenInterval = setInterval(() => {
       if (mobile) {
-        setIsFullscreenMode(isFullscreen() || document.body.classList.contains('ios-fullscreen'));
+        const fullscreenStatus = isFullscreen() || document.body.classList.contains('ios-fullscreen');
+        setIsFullscreenMode(fullscreenStatus);
       }
     }, 1000);
 
@@ -74,11 +89,21 @@ export default function Home() {
   }, []);
 
   // Handle clicks on the game area for fullscreen on iOS devices
-  const handleGameAreaClick = () => {
+  const handleGameAreaClick = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Ensure click events are processed
+    
     if (isMobileDevice && orientation === 'landscape') {
-      requestFullscreen(document.documentElement);
-      vibrate(15);
-      setIsFullscreenMode(true);
+      // Don't trigger fullscreen if we're in the middle of a game interaction
+      if (e.target instanceof HTMLButtonElement) {
+        // Allow button clicks to work normally
+        return;
+      }
+      
+      if (!isFullscreenMode) {
+        await requestFullscreen(document.documentElement);
+        vibrate(15);
+        setIsFullscreenMode(true);
+      }
     }
   };
 
@@ -93,8 +118,8 @@ export default function Home() {
 
   return (
     <main className={`min-h-screen flex flex-col items-center justify-center bg-black p-2 md:p-4 ${isIOSDevice && orientation === 'landscape' ? 'ios-landscape' : ''}`}>
-      {/* Mobile orientation warning */}
-      <OrientationWarning />
+      {/* Mobile orientation warning - only show in portrait mode */}
+      {orientation === 'portrait' && <OrientationWarning />}
       
       <h1 className="text-2xl md:text-3xl font-bold text-green-500 mb-4">SPACE INVADERS</h1>
       
@@ -103,12 +128,17 @@ export default function Home() {
         ref={gameWrapperRef}
         onClick={handleGameAreaClick}
         onTouchStart={(e) => {
+          // Don't prevent default for button clicks
+          if (e.target instanceof HTMLButtonElement) {
+            return;
+          }
+          
           if (isMobileDevice && orientation === 'landscape' && !isFullscreenMode) {
             e.preventDefault();
             requestFullscreen(document.documentElement);
           }
         }}
-        className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden touch-none' : ''} ${isIOSDevice ? 'ios-game-container' : ''}`}
+        className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden' : ''} ${isIOSDevice ? 'ios-game-container' : ''}`}
       >
         <div 
           className={`relative ${isMobileDevice ? 'transform-origin-top' : ''}`} 
@@ -132,7 +162,9 @@ export default function Home() {
       {!isFullscreenMode && isMobileDevice && orientation === 'landscape' && (
         <button
           className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg font-bold game-control-button"
-          onClick={() => {
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
             requestFullscreen(document.documentElement);
             vibrate(20);
           }}

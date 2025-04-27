@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen, vibrate } from '../utils/device';
+import { isMobile, getDeviceOrientation, requestFullscreen, vibrate, exitFullscreen } from '../utils/device';
 
 export default function OrientationWarning() {
   const [showWarning, setShowWarning] = useState(false);
@@ -29,8 +29,15 @@ export default function OrientationWarning() {
       const isMobileDevice = isMobile();
       const orientation = getDeviceOrientation();
       
+      // Only show warning in portrait mode on mobile
       if (isMobileDevice && orientation === 'portrait') {
         setShowWarning(true);
+        // If we were in fullscreen but now we're in portrait, exit fullscreen
+        try {
+          await exitFullscreen();
+        } catch (error) {
+          console.log('Error exiting fullscreen:', error);
+        }
       } else {
         setShowWarning(false);
         

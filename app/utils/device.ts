@@ -100,7 +100,18 @@ export const isIPhone = (): boolean => {
  * @returns 'portrait' | 'landscape' - The current orientation
  */
 export const getDeviceOrientation = (): 'portrait' | 'landscape' => {
-  return window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+  // Check if the screen orientation API is available
+  if (window.screen && window.screen.orientation && window.screen.orientation.type) {
+    const type = window.screen.orientation.type;
+    if (type.includes('portrait')) {
+      return 'portrait';
+    } else if (type.includes('landscape')) {
+      return 'landscape';
+    }
+  }
+  
+  // Fallback to dimension comparison - more reliable across browsers
+  return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
 };
 
 /**

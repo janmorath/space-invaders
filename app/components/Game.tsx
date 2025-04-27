@@ -687,8 +687,16 @@ export default function Game({ fullscreen = false }: GameProps) {
           
           {!soundsLoaded && (
             <button 
-              onClick={testSound} 
-              className="mb-6 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              onTouchStart={(e) => {
+                e.stopPropagation(); 
+                e.preventDefault();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                testSound();
+                vibrate(20);
+              }}
+              className="mb-6 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors game-control-button"
             >
               Click to Enable Sounds
             </button>
@@ -719,11 +727,20 @@ export default function Game({ fullscreen = false }: GameProps) {
           
           {isMobileDevice && (
             <button 
-              onClick={() => {
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
                 startGame();
                 vibrate(30);
+                
+                // Make sure sound is initialized when starting the game
+                if (soundEnabled && !soundsLoaded) {
+                  testSound();
+                }
               }}
-              onTouchStart={(e) => e.preventDefault()}
               className="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold game-control-button"
             >
               START GAME
@@ -793,20 +810,23 @@ export default function Game({ fullscreen = false }: GameProps) {
           
           {/* Mobile controls overlay - only shown on mobile devices */}
           {isMobileDevice && (
-            <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 pointer-events-none" onClick={(e) => e.stopPropagation()}>
               <div className="absolute bottom-0 left-0 w-full h-20 bg-black bg-opacity-20 flex items-center justify-between px-4">
                 <button 
                   className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-3xl font-bold game-control-button"
                   onTouchStart={(e) => {
+                    e.stopPropagation();
                     e.preventDefault();
                     setKeys(prev => ({ ...prev, space: true }));
                     vibrate(15);
                   }}
                   onTouchEnd={(e) => {
+                    e.stopPropagation();
                     e.preventDefault();
                     setKeys(prev => ({ ...prev, space: false }));
                   }}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setKeys(prev => ({ ...prev, space: true }));
                     setTimeout(() => setKeys(prev => ({ ...prev, space: false })), 100);
                     vibrate(15);
@@ -817,9 +837,19 @@ export default function Game({ fullscreen = false }: GameProps) {
                 
                 <button 
                   className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-xl font-bold game-control-button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setSoundEnabled(prev => !prev);
                     vibrate(20);
+                    
+                    // Initialize audio if turning sound on
+                    if (!soundEnabled && !soundsLoaded) {
+                      testSound();
+                    }
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                   }}
                 >
                   {soundEnabled ? '🔊' : '🔇'}

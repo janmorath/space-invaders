@@ -201,19 +201,43 @@ body {
   }
 }
 
-/* Improve touch button styles */
+/* Fix buttons in iOS and other mobile devices */
 button {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  position: relative;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 10; /* Ensure buttons are above other elements */
 }
 
-/* Visually indicate touch on mobile buttons */
+/* Improve touch button feedback */
 @media (hover: none) {
   button:active {
     transform: scale(0.96);
-    opacity: 0.8;
+    opacity: 0.85;
+    transition: transform 0.1s ease, opacity 0.1s ease;
   }
+  
+  /* Create a larger hit area for mobile buttons */
+  button:before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    z-index: -1;
+  }
+}
+
+/* Ensure game buttons work in fullscreen */
+.fullscreen-game button,
+.ios-fullscreen button,
+.fullscreen-fallback button {
+  pointer-events: auto !important;
 }
 
 /* Mobile control buttons */
