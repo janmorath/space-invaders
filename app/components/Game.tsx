@@ -270,112 +270,112 @@ export default function Game({ fullscreen = false }: GameProps) {
     }
   }, []);
 
-  // Keyboard and touch input handlers
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') {
-        setKeys(prev => ({ ...prev, left: true }));
-      }
-      if (e.key === 'ArrowRight' || e.key === 'd') {
-        setKeys(prev => ({ ...prev, right: true }));
-      }
-      if (e.key === ' ') {
-        setKeys(prev => ({ ...prev, space: true }));
-      }
-      if (e.key === 'Enter' && !gameStarted) {
-        startGame();
-      }
-      if (e.key === 'm') {
-        setSoundEnabled(prev => !prev);
-      }
-    };
+  // Define event handlers outside of useEffect so they're accessible in JSX
+  const handleKeyDown = useCallback((e: React.KeyboardEvent | KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') {
+      setKeys(prev => ({ ...prev, left: true }));
+    }
+    if (e.key === 'ArrowRight' || e.key === 'd') {
+      setKeys(prev => ({ ...prev, right: true }));
+    }
+    if (e.key === ' ') {
+      setKeys(prev => ({ ...prev, space: true }));
+    }
+    if (e.key === 'Enter' && !gameStarted) {
+      startGame();
+    }
+    if (e.key === 'm') {
+      setSoundEnabled(prev => !prev);
+    }
+  }, [gameStarted, setKeys, setSoundEnabled, startGame]);
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') {
-        setKeys(prev => ({ ...prev, left: false }));
-      }
-      if (e.key === 'ArrowRight' || e.key === 'd') {
-        setKeys(prev => ({ ...prev, right: false }));
-      }
-      if (e.key === ' ') {
+  const handleKeyUp = useCallback((e: React.KeyboardEvent | KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') {
+      setKeys(prev => ({ ...prev, left: false }));
+    }
+    if (e.key === 'ArrowRight' || e.key === 'd') {
+      setKeys(prev => ({ ...prev, right: false }));
+    }
+    if (e.key === ' ') {
+      setKeys(prev => ({ ...prev, space: false }));
+    }
+  }, [setKeys]);
+  
+  const handleTouchStart = useCallback((e: React.TouchEvent | TouchEvent) => {
+    if (!touchControls.enabled) return;
+    
+    // Prevent default to avoid scrolling
+    e.preventDefault();
+    
+    // Store initial touch position
+    if (e.touches.length > 0) {
+      touchStartXRef.current = e.touches[0].clientX;
+    }
+    
+    // Check if touch is in the bottom half of the screen (movement area)
+    const touchY = e.touches[0]?.clientY || 0;
+    const containerHeight = gameContainerRef.current?.clientHeight || 0;
+    
+    if (touchY > containerHeight * 0.7) {
+      // Touch in movement area - do nothing yet, movement will be handled in touchmove
+    } else {
+      // Touch in shooting area - fire
+      setKeys(prev => ({ ...prev, space: true }));
+      
+      // Add slight delay before releasing the space key to ensure it's registered
+      setTimeout(() => {
         setKeys(prev => ({ ...prev, space: false }));
+      }, 100);
+      
+      // Add haptic feedback for shooting
+      if (isMobileDevice) {
+        vibrate(15);
       }
-    };
+    }
+  }, [touchControls.enabled, isMobileDevice, setKeys]);
+  
+  const handleTouchMove = useCallback((e: React.TouchEvent | TouchEvent) => {
+    if (!touchControls.enabled || touchStartXRef.current === null) return;
     
-    // Touch event handlers for mobile devices
-    const handleTouchStart = (e: TouchEvent) => {
-      if (!touchControls.enabled) return;
-      
-      // Prevent default to avoid scrolling
-      e.preventDefault();
-      
-      // Store initial touch position
-      if (e.touches.length > 0) {
-        touchStartXRef.current = e.touches[0].clientX;
-      }
-      
-      // Check if touch is in the bottom half of the screen (movement area)
-      const touchY = e.touches[0]?.clientY || 0;
-      const containerHeight = gameContainerRef.current?.clientHeight || 0;
-      
-      if (touchY > containerHeight * 0.7) {
-        // Touch in movement area - do nothing yet, movement will be handled in touchmove
-      } else {
-        // Touch in shooting area - fire
-        setKeys(prev => ({ ...prev, space: true }));
-        
-        // Add slight delay before releasing the space key to ensure it's registered
-        setTimeout(() => {
-          setKeys(prev => ({ ...prev, space: false }));
-        }, 100);
-        
-        // Add haptic feedback for shooting
-        if (isMobileDevice) {
-          vibrate(15);
-        }
-      }
-    };
+    e.preventDefault();
     
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!touchControls.enabled || touchStartXRef.current === null) return;
+    if (e.touches.length > 0) {
+      const currentX = e.touches[0].clientX;
+      const deltaX = currentX - touchStartXRef.current;
       
-      e.preventDefault();
+      // Apply sensitivity and check deadzone
+      const movement = deltaX * touchControls.sensitivity;
       
-      if (e.touches.length > 0) {
-        const currentX = e.touches[0].clientX;
-        const deltaX = currentX - touchStartXRef.current;
-        
-        // Apply sensitivity and check deadzone
-        const movement = deltaX * touchControls.sensitivity;
-        
-        if (Math.abs(movement) > touchControls.deadzone * 20) {
-          if (movement < 0) {
-            setKeys(prev => ({ ...prev, left: true, right: false }));
-          } else {
-            setKeys(prev => ({ ...prev, left: false, right: true }));
-          }
+      if (Math.abs(movement) > touchControls.deadzone * 20) {
+        if (movement < 0) {
+          setKeys(prev => ({ ...prev, left: true, right: false }));
         } else {
-          // Within deadzone - stop movement
-          setKeys(prev => ({ ...prev, left: false, right: false }));
+          setKeys(prev => ({ ...prev, left: false, right: true }));
         }
+      } else {
+        // Within deadzone - stop movement
+        setKeys(prev => ({ ...prev, left: false, right: false }));
       }
-    };
+    }
+  }, [touchControls.enabled, touchControls.sensitivity, touchControls.deadzone, setKeys]);
+  
+  const handleTouchEnd = useCallback((e: React.TouchEvent | TouchEvent) => {
+    if (!touchControls.enabled) return;
     
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!touchControls.enabled) return;
-      
-      e.preventDefault();
-      
-      // Reset touch tracking
-      touchStartXRef.current = null;
-      
-      // Stop movement
-      setKeys(prev => ({ ...prev, left: false, right: false }));
-    };
-
+    e.preventDefault();
+    
+    // Reset touch tracking
+    touchStartXRef.current = null;
+    
+    // Stop movement
+    setKeys(prev => ({ ...prev, left: false, right: false }));
+  }, [touchControls.enabled, setKeys]);
+  
+  // Keyboard and touch input handlers - attach event listeners
+  useEffect(() => {
     // Attach event listeners
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('keydown', handleKeyDown as EventListener);
+    window.addEventListener('keyup', handleKeyUp as EventListener);
     
     // Store the ref in a variable to fix React Hook cleanup warning
     const currentContainer = gameContainerRef.current;
@@ -387,8 +387,8 @@ export default function Game({ fullscreen = false }: GameProps) {
     }
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('keydown', handleKeyDown as EventListener);
+      window.removeEventListener('keyup', handleKeyUp as EventListener);
       
       if (currentContainer) {
         currentContainer.removeEventListener('touchstart', handleTouchStart as EventListener);
@@ -396,7 +396,7 @@ export default function Game({ fullscreen = false }: GameProps) {
         currentContainer.removeEventListener('touchend', handleTouchEnd as EventListener);
       }
     };
-  }, [gameStarted, touchControls.enabled, touchControls.sensitivity, touchControls.deadzone, startGame]);
+  }, [gameStarted, touchControls.enabled, handleKeyDown, handleKeyUp, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   // Game loop
   useEffect(() => {
