@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Space Invaders
 
-## Getting Started
+A classic arcade game recreated with Next.js and Tailwind CSS.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Classic Space Invaders gameplay
+- Player movement and shooting
+- Alien formations with movement patterns
+- Multiple alien types with different point values
+- Destructible shields for protection
+- Collision detection
+- Score tracking with high score saving
+- Game over and victory screens
+- Responsive design
+- Sound effects using Web Audio API
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Technologies Used
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [Next.js](https://nextjs.org/) - React framework
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [TypeScript](https://www.typescriptlang.org/) - Typed JavaScript
+- Local Storage API for saving high scores
+- Web Audio API for sound effects
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How to Play
 
-## Learn More
+1. Clone this repository
+2. Install dependencies with `npm install`
+3. Run the development server with `npm run dev`
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
+5. **Important**: Click the "Enable Sounds" button on the start screen for sound effects
 
-To learn more about Next.js, take a look at the following resources:
+## Game Mechanics
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Control your spaceship at the bottom of the screen
+- Shoot the alien invaders before they reach you
+- Different aliens have different point values:
+  - Red aliens (top row): 30 points
+  - Blue aliens (middle rows): 20 points
+  - Purple aliens (bottom rows): 10 points
+- Use the shields to protect yourself from enemy fire
+- Shields will deteriorate as they take damage
+- Aliens move faster as you eliminate more of them
+- Your high score is saved between sessions
+- Game ends when you destroy all aliens or when you're hit
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Controls
 
-## Deploy on Vercel
+- ←/→ or A/D keys: Move the player spaceship
+- Space bar: Shoot
+- Enter: Start the game
+- M: Toggle sound effects
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Sound Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This game uses the Web Audio API to generate sound effects directly in the browser. Due to browser security policies, you must first interact with the page (by clicking the "Enable Sounds" button) before sounds can be played.
+
+## Development
+
+This project was created using the Next.js App Router with Tailwind CSS.
+
+## Deployment
+
+You can deploy this game to Vercel with a few simple steps:
+
+1. Push your code to a GitHub repository
+2. Visit [Vercel](https://vercel.com/new) and import your repository
+3. Deploy with default settings
+4. Your game will be available online!
+
+## License
+
+MIT
