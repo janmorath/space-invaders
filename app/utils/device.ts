@@ -6,49 +6,8 @@
 
 // Define an interface for Window with opera property
 interface WindowWithOpera extends Window {
-  opera?: {
-    toString: () => string;
-  };
-  MSStream?: any; // For IE detection
-}
-
-// Define orientation lock types
-type OrientationLockType = 
-  | 'any'
-  | 'natural'
-  | 'landscape'
-  | 'portrait'
-  | 'portrait-primary'
-  | 'portrait-secondary'
-  | 'landscape-primary'
-  | 'landscape-secondary';
-
-// Create custom screen interface without extending the built-in one
-interface CustomScreen {
-  orientation?: {
-    lock?: (orientation: OrientationLockType) => Promise<void>;
-    type?: string;
-    angle?: number;
-  };
-}
-
-// Fullscreen API has cross-browser variations
-interface FullscreenDocument {
-  fullscreenElement: Element | null;
-  webkitFullscreenElement?: Element | null;
-  mozFullScreenElement?: Element | null;
-  msFullscreenElement?: Element | null;
-  exitFullscreen: () => Promise<void>;
-  webkitExitFullscreen?: () => Promise<void>;
-  mozCancelFullScreen?: () => Promise<void>;
-  msExitFullscreen?: () => Promise<void>;
-}
-
-interface FullscreenElement {
-  requestFullscreen: (options?: FullscreenOptions) => Promise<void>;
-  webkitRequestFullscreen?: () => Promise<void>;
-  mozRequestFullScreen?: () => Promise<void>;
-  msRequestFullscreen?: () => Promise<void>;
+  opera?: unknown;
+  MSStream?: unknown; // For IE detection
 }
 
 // Type definitions
@@ -67,7 +26,7 @@ export function isMobile(): boolean {
   if (typeof window === 'undefined') return false;
   
   // Check with userAgent (most reliable)
-  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const userAgent = navigator.userAgent || navigator.vendor || '';
   const mobileRegex = /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i;
   
   if (mobileRegex.test(userAgent)) {
@@ -101,10 +60,10 @@ export function isMobile(): boolean {
 export function isIOS(): boolean {
   if (typeof window === 'undefined') return false;
   
-  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const userAgent = navigator.userAgent || navigator.vendor || '';
   
   // Check for iOS devices including iPad (which may report as desktop in newer iOS)
-  if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
+  if (/iPad|iPhone|iPod/.test(userAgent) && !(window as WindowWithOpera).MSStream) {
     return true;
   }
   
@@ -159,9 +118,9 @@ export const useOrientationChange = (callback: (orientation: 'portrait' | 'lands
 export function isFullscreen(): boolean {
   return !!(
     document.fullscreenElement ||
-    (document as any).webkitFullscreenElement ||
-    (document as any).mozFullScreenElement ||
-    (document as any).msFullscreenElement ||
+    (document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement ||
+    (document as Document & { mozFullScreenElement?: Element | null }).mozFullScreenElement ||
+    (document as Document & { msFullscreenElement?: Element | null }).msFullscreenElement ||
     document.body.classList.contains('ios-fullscreen') ||
     document.body.classList.contains('fullscreen-fallback')
   );
@@ -181,12 +140,12 @@ export async function requestFullscreen(element: HTMLElement = document.document
   try {
     if (element.requestFullscreen) {
       await element.requestFullscreen();
-    } else if ((element as any).webkitRequestFullscreen) {
-      await (element as any).webkitRequestFullscreen();
-    } else if ((element as any).msRequestFullscreen) {
-      await (element as any).msRequestFullscreen();
-    } else if ((element as any).mozRequestFullScreen) {
-      await (element as any).mozRequestFullScreen();
+    } else if ((element as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen) {
+      await (element as HTMLElement & { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
+    } else if ((element as HTMLElement & { msRequestFullscreen?: () => Promise<void> }).msRequestFullscreen) {
+      await (element as HTMLElement & { msRequestFullscreen: () => Promise<void> }).msRequestFullscreen();
+    } else if ((element as HTMLElement & { mozRequestFullScreen?: () => Promise<void> }).mozRequestFullScreen) {
+      await (element as HTMLElement & { mozRequestFullScreen: () => Promise<void> }).mozRequestFullScreen();
     }
     
     // Add iOS fullscreen fallback
@@ -212,12 +171,12 @@ export async function exitFullscreen(): Promise<void> {
   try {
     if (document.exitFullscreen) {
       await document.exitFullscreen();
-    } else if ((document as any).webkitExitFullscreen) {
-      await (document as any).webkitExitFullscreen();
-    } else if ((document as any).msExitFullscreen) {
-      await (document as any).msExitFullscreen();
-    } else if ((document as any).mozCancelFullScreen) {
-      await (document as any).mozCancelFullScreen();
+    } else if ((document as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen) {
+      await (document as Document & { webkitExitFullscreen: () => Promise<void> }).webkitExitFullscreen();
+    } else if ((document as Document & { msExitFullscreen?: () => Promise<void> }).msExitFullscreen) {
+      await (document as Document & { msExitFullscreen: () => Promise<void> }).msExitFullscreen();
+    } else if ((document as Document & { mozCancelFullScreen?: () => Promise<void> }).mozCancelFullScreen) {
+      await (document as Document & { mozCancelFullScreen: () => Promise<void> }).mozCancelFullScreen();
     }
     
     // Remove iOS fallback classes

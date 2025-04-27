@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, isFullscreen, exitFullscreen } from './utils/device';
+import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, exitFullscreen } from './utils/device';
 import OrientationWarning from './components/OrientationWarning';
 
 // Use dynamic import with SSR disabled for the Game component
