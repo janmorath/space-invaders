@@ -147,34 +147,71 @@ body {
   }
 }
 
-/* Orientation warning for mobile devices in portrait mode */
-@media screen and (max-width: 768px) and (orientation: portrait) {
-  .orientation-warning {
+/* Portrait orientation warning styles */
+.orientation-warning {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #000;
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #4ade80;
+  text-align: center;
+  padding: 2rem;
+}
+
+.orientation-warning-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: rotate 2s infinite;
+}
+
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(90deg); }
+}
+
+/* Specific landscape orientation styles */
+@media screen and (orientation: landscape) {
+  body.ios-fullscreen,
+  body.fullscreen-fallback,
+  :fullscreen,
+  :-webkit-full-screen,
+  :-moz-full-screen {
+    width: 100vw;
+    height: 100vh;
+    background-color: black;
+    margin: 0;
+    padding: 0;
     display: flex;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #000;
-    z-index: 9999;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #4ade80;
-    text-align: center;
-    padding: 2rem;
+    overflow: hidden;
   }
   
-  .orientation-warning-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    animation: rotate 2s infinite;
+  /* Hide browser UI in fullscreen landscape */
+  body.ios-fullscreen *, 
+  body.fullscreen-fallback *,
+  :fullscreen *,
+  :-webkit-full-screen *,
+  :-moz-full-screen * {
+    -webkit-tap-highlight-color: transparent;
   }
-  
-  @keyframes rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(90deg); }
+}
+
+/* Only apply these styles in portrait mode */
+@media screen and (orientation: portrait) {
+  body.ios-fullscreen,
+  body.fullscreen-fallback {
+    /* Remove fullscreen styles in portrait */
+    position: static;
+    width: auto;
+    height: auto;
   }
 }
 

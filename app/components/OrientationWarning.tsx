@@ -10,15 +10,11 @@ export default function OrientationWarning() {
   // Function to handle manual fullscreen request
   const handleFullscreenRequest = async () => {
     try {
-      // Force device rotation first
-      // We'll use a visual cue to encourage the user to rotate their device
-      setShowWarning(true);
+      // Encourage the user to rotate their device
       vibrate([50, 100, 50]);
       
-      // Attempt to go fullscreen after a short delay
-      setTimeout(async () => {
-        await requestFullscreen(document.documentElement);
-      }, 500);
+      // Hide the warning
+      setShowWarning(false);
     } catch (error) {
       console.error('Error requesting fullscreen:', error);
     }
@@ -29,10 +25,11 @@ export default function OrientationWarning() {
       const isMobileDevice = isMobile();
       const orientation = getDeviceOrientation();
       
-      // Only show warning in portrait mode on mobile
+      // Show warning if portrait, hide if landscape
       if (isMobileDevice && orientation === 'portrait') {
         setShowWarning(true);
-        // If we were in fullscreen but now we're in portrait, exit fullscreen
+        
+        // Exit fullscreen when in portrait mode
         try {
           await exitFullscreen();
         } catch (error) {
@@ -41,15 +38,13 @@ export default function OrientationWarning() {
       } else {
         setShowWarning(false);
         
-        // If on mobile and in landscape, try to go fullscreen
+        // Go fullscreen when in landscape mode
         if (isMobileDevice && orientation === 'landscape') {
           try {
-            // Try to request fullscreen on the game wrapper
-            // We use a timeout to ensure this happens after the orientation change is complete
+            // Use a timeout to ensure the orientation change is complete
             setTimeout(async () => {
-              const root = document.documentElement;
-              await requestFullscreen(root);
-            }, 300);
+              await requestFullscreen(document.documentElement);
+            }, 500);
           } catch (error) {
             console.error('Error enabling fullscreen:', error);
           }

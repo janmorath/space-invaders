@@ -83,8 +83,12 @@ export const isMobile = (): boolean => {
  * @returns boolean - true if the device is using iOS, false otherwise
  */
 export const isIOS = (): boolean => {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && 
-         !(window as WindowWithOpera).MSStream; // Excludes IE11
+  // More reliable iOS detection
+  const userAgent = navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(userAgent) && 
+         !(window as WindowWithOpera).MSStream && 
+         // Additional check for iOS Safari
+         ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 0);
 };
 
 /**
@@ -100,18 +104,9 @@ export const isIPhone = (): boolean => {
  * @returns 'portrait' | 'landscape' - The current orientation
  */
 export const getDeviceOrientation = (): 'portrait' | 'landscape' => {
-  // Check if the screen orientation API is available
-  if (window.screen && window.screen.orientation && window.screen.orientation.type) {
-    const type = window.screen.orientation.type;
-    if (type.includes('portrait')) {
-      return 'portrait';
-    } else if (type.includes('landscape')) {
-      return 'landscape';
-    }
-  }
-  
-  // Fallback to dimension comparison - more reliable across browsers
-  return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+  // Simplify orientation detection - this is more reliable
+  // Check width vs height since that's the true indicator regardless of device API
+  return window.innerWidth < window.innerHeight ? 'portrait' : 'landscape';
 };
 
 /**
