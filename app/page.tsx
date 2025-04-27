@@ -145,6 +145,7 @@ export default function Home() {
       
       {/* Responsive container for the game */}
       <div 
+        id="game-wrapper"
         ref={gameWrapperRef}
         onClick={handleGameAreaClick}
         onTouchStart={(e) => {
@@ -160,6 +161,15 @@ export default function Home() {
           if (isMobileDevice && orientation === 'landscape' && !isFullscreen()) {
             console.log('Attempting fullscreen from touch in game wrapper');
             try {
+              // Try to hide browser UI by scrolling
+              window.scrollTo(0, 1);
+              
+              // Force iOS fullscreen
+              document.documentElement.style.position = 'fixed';
+              document.documentElement.style.width = '100%';
+              document.documentElement.style.height = '100%';
+              document.documentElement.style.overflow = 'hidden';
+              
               requestFullscreen(document.documentElement);
               document.body.classList.add('ios-fullscreen');
               vibrate(15);

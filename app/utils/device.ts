@@ -218,22 +218,61 @@ export async function requestFullscreen(element: HTMLElement = document.document
  */
 export async function exitFullscreen(): Promise<void> {
   try {
+    // Try unlocking screen orientation first if it was locked
+    if (typeof screen !== 'undefined' && screen.orientation) {
+      try {
+        // Cast to our interface that includes the unlock method
+        const orientation = screen.orientation as ScreenOrientationType;
+        if (orientation.unlock) {
+          orientation.unlock();
+          console.log('Screen orientation unlocked');
+        }
+      } catch (orientationError) {
+        console.warn('Could not unlock screen orientation:', orientationError);
+      }
+    }
+
+    // Use standard exit fullscreen APIs
     if (document.exitFullscreen) {
+      console.log('Using standard exitFullscreen API');
       await document.exitFullscreen();
     } else if ((document as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen) {
+      console.log('Using webkit exitFullscreen API');
       await (document as Document & { webkitExitFullscreen: () => Promise<void> }).webkitExitFullscreen();
     } else if ((document as Document & { msExitFullscreen?: () => Promise<void> }).msExitFullscreen) {
+      console.log('Using MS exitFullscreen API');
       await (document as Document & { msExitFullscreen: () => Promise<void> }).msExitFullscreen();
     } else if ((document as Document & { mozCancelFullScreen?: () => Promise<void> }).mozCancelFullScreen) {
+      console.log('Using Moz exitFullscreen API');
       await (document as Document & { mozCancelFullScreen: () => Promise<void> }).mozCancelFullScreen();
     }
     
-    // Remove iOS fallback classes
+    // Remove iOS fullscreen specific styles
     document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
+    
+    // Reset document styles
+    document.documentElement.style.position = '';
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.width = '';
+    document.documentElement.style.height = '';
+    document.body.style.position = '';
+    document.body.style.overflow = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
   } catch (error) {
     console.error('Exit fullscreen failed:', error);
     // Still remove the classes in case of error
     document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
+    
+    // Reset document styles even on error
+    document.documentElement.style.position = '';
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.width = '';
+    document.documentElement.style.height = '';
+    document.body.style.position = '';
+    document.body.style.overflow = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
   }
 }
 
