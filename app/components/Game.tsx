@@ -252,9 +252,6 @@ export default function Game({ fullscreen = false }: GameProps) {
   // Effect to handle fullscreen mode changes
   useEffect(() => {
     if (fullscreen && gameContainerRef.current) {
-      // Apply fullscreen specific styling
-      const container = gameContainerRef.current;
-      
       // Make sure controls work well in fullscreen by adjusting sensitivity
       if (isMobileDevice) {
         setTouchControls(prev => ({
