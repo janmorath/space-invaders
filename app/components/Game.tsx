@@ -30,12 +30,14 @@ const SHIELD_HEIGHT = 50;
 const SHIELD_COUNT = 4;
 const SHIELD_MAX_HEALTH = 100;
 const LOCAL_STORAGE_HIGH_SCORE_KEY = 'spaceInvaders_highScore';
+const WAVE_SPEED_INCREMENT = 0.2; // Speed increase per wave
 
 export default function Game() {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
+  const [wave, setWave] = useState(1);
   const [playerPosition, setPlayerPosition] = useState({ x: GAME_WIDTH / 2 - PLAYER_WIDTH / 2, y: GAME_HEIGHT - PLAYER_HEIGHT - 20 });
   const [aliens, setAliens] = useState<{ id: number; x: number; y: number; alive: boolean; type: 1 | 2 | 3; points: number }[]>([]);
   const [projectiles, setProjectiles] = useState<{ id: number; x: number; y: number; isPlayer: boolean }[]>([]);
@@ -43,11 +45,13 @@ export default function Game() {
   const [keys, setKeys] = useState({ left: false, right: false, space: false });
   const [alienDirection, setAlienDirection] = useState(1);
   const [alienSpeed, setAlienSpeed] = useState(ALIEN_SPEED);
+  const [waveCompleteMessage, setWaveCompleteMessage] = useState(false);
   const lastTimeRef = useRef(0);
   const shotCooldownRef = useRef(0);
   const alienShotCooldownRef = useRef(0);
   const gameIdRef = useRef(0);
   const projectileIdRef = useRef(0);
+  const waveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Sound effects
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -101,26 +105,54 @@ export default function Game() {
   };
 
   const startGame = () => {
+    // Reset game state
+    setWave(1);
+    setProjectiles([]);
+    setScore(0);
+    setGameOver(false);
+    setGameStarted(true);
+    setPlayerPosition({ x: GAME_WIDTH / 2 - PLAYER_WIDTH / 2, y: GAME_HEIGHT - PLAYER_HEIGHT - 20 });
+    setAlienDirection(1);
+    setAlienSpeed(ALIEN_SPEED);
+    setWaveCompleteMessage(false);
+    
+    // Initialize the first wave
+    initializeWave(1);
+  };
+  
+  // Initialize a new wave of aliens
+  const initializeWave = (waveNumber: number) => {
+    // Clear any existing wave timeout
+    if (waveTimeoutRef.current) {
+      clearTimeout(waveTimeoutRef.current);
+      waveTimeoutRef.current = null;
+    }
+    
     // Initialize aliens
     const newAliens = [];
     let id = 0;
-    for (let row = 0; row < ALIEN_ROWS; row++) {
+    
+    // Increase number of aliens based on wave (up to a limit)
+    const rows = Math.min(ALIEN_ROWS + Math.floor(waveNumber / 3), 7);
+    const columns = Math.min(ALIEN_COLUMNS + Math.floor(waveNumber / 2), 12);
+    
+    for (let row = 0; row < rows; row++) {
       // Determine alien type and points based on row
       let type: 1 | 2 | 3;
       let points: number;
       
       if (row < 1) {
         type = 3; // Top row
-        points = 30; // Top row aliens worth more points
+        points = 30 * waveNumber; // Points increase with wave number
       } else if (row < 3) {
         type = 2; // Middle rows
-        points = 20;
+        points = 20 * waveNumber;
       } else {
         type = 1; // Bottom rows
-        points = 10;
+        points = 10 * waveNumber;
       }
       
-      for (let col = 0; col < ALIEN_COLUMNS; col++) {
+      for (let col = 0; col < columns; col++) {
         newAliens.push({
           id: id++,
           x: col * ALIEN_HORIZONTAL_SPACING + 100,
@@ -133,7 +165,7 @@ export default function Game() {
     }
     setAliens(newAliens);
     
-    // Initialize shields
+    // Initialize shields (repair shields a bit for each new wave)
     const newShields = [];
     const shieldY = GAME_HEIGHT - PLAYER_HEIGHT - 100;
     for (let i = 0; i < SHIELD_COUNT; i++) {
@@ -141,18 +173,14 @@ export default function Game() {
         id: i,
         x: (i + 1) * (GAME_WIDTH / (SHIELD_COUNT + 1)) - SHIELD_WIDTH / 2,
         y: shieldY,
-        health: SHIELD_MAX_HEALTH
+        // Shield health decreases with each wave but never below 20
+        health: Math.max(SHIELD_MAX_HEALTH - (waveNumber - 1) * 20, 20)
       });
     }
     setShields(newShields);
     
-    setProjectiles([]);
-    setScore(0);
-    setGameOver(false);
-    setGameStarted(true);
-    setPlayerPosition({ x: GAME_WIDTH / 2 - PLAYER_WIDTH / 2, y: GAME_HEIGHT - PLAYER_HEIGHT - 20 });
-    setAlienDirection(1);
-    setAlienSpeed(ALIEN_SPEED);
+    // Increase alien speed with each wave
+    setAlienSpeed(ALIEN_SPEED + (waveNumber - 1) * WAVE_SPEED_INCREMENT);
   };
 
   useEffect(() => {
@@ -420,10 +448,26 @@ export default function Game() {
 
       // Check if all aliens are dead
       if (aliens.every(alien => !alien.alive)) {
-        setGameOver(true);
-        setGameStarted(false);
-        updateHighScore();
-        return;
+        if (wave >= 5) {
+          // Player has completed all 5 waves - they win the game
+          setGameOver(true);
+          setGameStarted(false);
+          updateHighScore();
+          return;
+        } else {
+          // Wave completed, prepare for next wave
+          setWaveCompleteMessage(true);
+          
+          // Show "Wave Complete" message for 3 seconds before starting next wave
+          waveTimeoutRef.current = setTimeout(() => {
+            const nextWave = wave + 1;
+            setWave(nextWave);
+            setWaveCompleteMessage(false);
+            initializeWave(nextWave);
+          }, 3000);
+          
+          return;
+        }
       }
 
       if (gameStarted && !gameOver) {
@@ -447,6 +491,15 @@ export default function Game() {
       }
     }
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (waveTimeoutRef.current) {
+        clearTimeout(waveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="relative h-[600px] w-[800px] bg-black border-2 border-green-500 overflow-hidden select-none">
@@ -484,6 +537,7 @@ export default function Game() {
         <>
           <div className="absolute top-2 left-2 text-green-500 text-xl">Score: {score}</div>
           <div className="absolute top-6 left-2 text-green-500 text-sm">High Score: {highScore}</div>
+          <div className="absolute top-10 left-2 text-green-500 text-sm">Wave: {wave} / 5</div>
           <div className="absolute top-2 right-2 text-green-500 text-sm flex flex-col items-end">
             <div>
               Sound: {soundEnabled ? (soundsLoaded ? 'On' : 'Off (Not Initialized)') : 'Off'} (Press M to toggle)
@@ -537,10 +591,24 @@ export default function Game() {
               isPlayer={projectile.isPlayer} 
             />
           ))}
+          
+          {/* Wave complete message */}
+          {waveCompleteMessage && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+              <h2 className="text-4xl font-bold mb-4 text-green-500">Wave {wave} Complete!</h2>
+              <p className="text-2xl text-green-400">Get Ready For Wave {wave + 1}</p>
+            </div>
+          )}
         </>
       )}
 
-      {gameOver && <GameOver score={score} onRestart={startGame} victory={aliens.every(alien => !alien.alive)} highScore={highScore} />}
+      {gameOver && <GameOver 
+        score={score} 
+        onRestart={startGame} 
+        victory={aliens.every(alien => !alien.alive) && wave >= 5} 
+        highScore={highScore}
+        wave={wave} 
+      />}
     </div>
   );
 } 

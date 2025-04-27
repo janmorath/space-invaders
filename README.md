@@ -8,6 +8,7 @@ A classic arcade game recreated with Next.js and Tailwind CSS.
 - Player movement and shooting
 - Alien formations with movement patterns
 - Multiple alien types with different point values
+- Multiple waves with increasing difficulty
 - Destructible shields for protection
 - Collision detection
 - Score tracking with high score saving
@@ -36,14 +37,20 @@ A classic arcade game recreated with Next.js and Tailwind CSS.
 - Control your spaceship at the bottom of the screen
 - Shoot the alien invaders before they reach you
 - Different aliens have different point values:
-  - Red aliens (top row): 30 points
-  - Blue aliens (middle rows): 20 points
-  - Purple aliens (bottom rows): 10 points
+  - Red aliens (top row): 30 points × wave number
+  - Blue aliens (middle rows): 20 points × wave number
+  - Purple aliens (bottom rows): 10 points × wave number
+- Complete all 5 waves to win the game
+- Each wave introduces:
+  - More aliens
+  - Faster movement
+  - Higher point values
+  - Slightly weaker shields
 - Use the shields to protect yourself from enemy fire
 - Shields will deteriorate as they take damage
 - Aliens move faster as you eliminate more of them
 - Your high score is saved between sessions
-- Game ends when you destroy all aliens or when you're hit
+- Game ends when you destroy all aliens across all waves or when you're hit
 
 ## Controls
 

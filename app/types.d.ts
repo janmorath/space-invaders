@@ -40,6 +40,7 @@ declare module './components/GameOver' {
     onRestart: () => void;
     victory: boolean;
     highScore?: number;
+    wave?: number;
   }
   const GameOver: React.FC<GameOverProps>;
   export default GameOver;
