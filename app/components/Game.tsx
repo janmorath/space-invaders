@@ -7,7 +7,7 @@ import Projectile from './Projectile';
 import GameOver from './GameOver';
 import Shield from './Shield';
 import { playLaserSound, playExplosionSound, playGameOverSound, initAudioContext } from '../lib/sounds';
-import { isMobile, getTouchControlsConfig, vibrate } from '../utils/device';
+import { isMobile, getTouchControlsConfig, vibrate, getDeviceOrientation } from '../utils/device';
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
@@ -65,6 +65,7 @@ export default function Game({ fullscreen = false }: GameProps) {
   // Device detection
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [touchControls, setTouchControls] = useState({ enabled: false, sensitivity: 1.0, deadzone: 0.05 });
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const touchStartXRef = useRef<number | null>(null);
   const gameContainerRef = useRef<HTMLDivElement>(null);
   
@@ -231,6 +232,23 @@ export default function Game({ fullscreen = false }: GameProps) {
     initializeWave(1);
   }, [initializeWave]);
   
+  // Update orientation when it changes
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      setOrientation(getDeviceOrientation());
+    };
+    
+    handleOrientationChange(); // Set initial orientation
+    
+    window.addEventListener('resize', handleOrientationChange);
+    window.addEventListener('orientationchange', handleOrientationChange);
+    
+    return () => {
+      window.removeEventListener('resize', handleOrientationChange);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+
   // Load high score from localStorage on initial render
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -246,29 +264,11 @@ export default function Game({ fullscreen = false }: GameProps) {
       // Configure touch controls
       const touchConfig = getTouchControlsConfig();
       setTouchControls(touchConfig);
+      
+      // Set initial orientation
+      setOrientation(getDeviceOrientation());
     }
   }, []);
-
-  // Effect to handle fullscreen mode changes
-  useEffect(() => {
-    if (fullscreen && gameContainerRef.current) {
-      console.log('Game - Detected fullscreen mode change:', { fullscreen, isMobileDevice });
-      // Make sure controls work well in fullscreen by adjusting sensitivity
-      if (isMobileDevice) {
-        setTouchControls(prev => ({
-          ...prev,
-          sensitivity: fullscreen ? 2.0 : 1.5, // Increase sensitivity in fullscreen
-          deadzone: fullscreen ? 0.02 : 0.05,  // Reduce deadzone in fullscreen
-        }));
-        
-        // Auto-initialize sound in fullscreen mode for better user experience
-        if (soundEnabled && !soundsLoaded) {
-          console.log('Game - Auto-initializing sound in fullscreen mode');
-          testSound();
-        }
-      }
-    }
-  }, [fullscreen, isMobileDevice, testSound, soundEnabled, soundsLoaded]);
 
   // Keyboard and touch input handlers
   useEffect(() => {
@@ -677,15 +677,21 @@ export default function Game({ fullscreen = false }: GameProps) {
   return (
     <div 
       ref={gameContainerRef}
-      className={`relative h-[600px] w-[800px] bg-black border-2 border-green-500 overflow-hidden select-none ${fullscreen ? 'fullscreen-game' : ''}`}
+      tabIndex={0}
+      className={`relative bg-black border-2 border-green-500 select-none focus:outline-none ${
+        fullscreen ? 'fullscreen-game' : ''
+      } ${isMobileDevice ? 'mobile-game touch-manipulation' : ''} ${
+        orientation === 'landscape' ? 'landscape-mode' : ''
+      }`}
       style={{
         width: `${GAME_WIDTH}px`,
         height: `${GAME_HEIGHT}px`,
-        border: '4px solid #33ff33',
-        backgroundColor: 'black',
-        position: 'relative',
-        overflow: 'hidden'
       }}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {!gameStarted && !gameOver && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-green-500">

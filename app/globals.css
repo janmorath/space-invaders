@@ -151,7 +151,10 @@ body {
 
   .game-container {
     transform-origin: center !important;
-    transform: scale(calc(100vh / 600)) !important;
+    /* Use aspect ratio-based scaling instead of fixed height-based scaling */
+    transform: scale(min(calc(100vh / 600), calc(100vw / 800))) !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
   }
   
   h1, footer {
@@ -309,6 +312,13 @@ body {
     height: 1px;
     opacity: 0;
     z-index: -999;
+  }
+
+  /* Ensure the game canvas takes up available space in landscape mode */
+  canvas {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
   }
 }
 
@@ -569,4 +579,29 @@ button {
       justify-content: center !important;
     }
   }
+}
+
+/* Special class for landscape orientation */
+body.landscape-orientation {
+  width: 100vw !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  position: fixed !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Center game in landscape mode */
+.landscape-mode {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Fix for touch events in landscape mode */
+.mobile-game {
+  touch-action: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
 }

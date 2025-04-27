@@ -1,8 +1,8 @@
 "use client";
 
-import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
-import { isMobile, getDeviceOrientation, requestFullscreen, isIOS, vibrate, exitFullscreen, isFullscreen } from './utils/device';
+import dynamic from 'next/dynamic';
+import { isMobile as isMobileDevice, isIOS, getDeviceOrientation, isFullscreen, requestFullscreen, vibrate } from './utils/device';
 import OrientationWarning from './components/OrientationWarning';
 import HomeScreenPrompt from './components/HomeScreenPrompt';
 
@@ -12,171 +12,50 @@ const Game = dynamic(() => import('./components/Game'), {
   ssr: false,
 });
 
-// Custom interface for Navigator to include standalone property
-interface NavigatorWithStandalone extends Navigator {
-  standalone?: boolean;
-}
-
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
-  const [isMobileDevice, setIsMobileDevice] = useState(false);
-  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [isMobile, setIsMobile] = useState(false);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape' | null>(null);
   const [isFromHomeScreen, setIsFromHomeScreen] = useState(false);
   const gameWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Check if we're on the client-side and detect mobile
+  // Set up client-side state once mounted
   useEffect(() => {
     setIsClient(true);
-    const mobile = isMobile();
-    const iOS = isIOS();
-    const currentOrientation = getDeviceOrientation();
+    setIsMobile(isMobileDevice());
+    setIsIOSDevice(isIOS());
+    setOrientation(getDeviceOrientation());
     
-    // Check if launched from homescreen or with fullscreen parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const fullscreenRequested = urlParams.get('fullscreen') === 'true';
-    const isStandalone = (window.navigator as NavigatorWithStandalone).standalone || 
-                        window.matchMedia('(display-mode: standalone)').matches ||
-                        window.matchMedia('(display-mode: fullscreen)').matches;
+    // Check if app is running from home screen
+    const isStandalone = 
+      'standalone' in window.navigator && (window.navigator as any).standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches;
     
-    setIsFromHomeScreen(isStandalone || fullscreenRequested);
+    setIsFromHomeScreen(isStandalone);
     
-    setIsMobileDevice(mobile);
-    setIsIOSDevice(iOS);
-    setOrientation(currentOrientation);
-    
-    console.log('Home - Initial state:', { 
-      mobile, 
-      iOS, 
-      orientation: currentOrientation,
-      isFullscreen: isFullscreen(),
-      isStandalone,
-      fullscreenRequested,
-      screenWidth: window.innerWidth,
-      screenHeight: window.innerHeight
-    });
-
-    // If launched from homescreen, immediately try to go fullscreen
-    if (isStandalone || fullscreenRequested) {
-      setTimeout(() => {
-        requestFullscreen(document.documentElement);
-        document.body.classList.add('ios-fullscreen');
-        
-        // More aggressive scrolling
-        for (let i = 0; i < 20; i++) {
-          setTimeout(() => {
-            window.scrollTo(0, 1);
-          }, i * 50);
-        }
-      }, 100);
-    }
-
-    // Special handling for iOS Safari
-    if (iOS) {
-      // Try to hide the URL bar using the minimal-ui approach
-      setTimeout(() => {
-        window.scrollTo(0, 1);
-      }, 50);
-      
-      // Use a special technique for iOS Safari to hide chrome
-      if (currentOrientation === 'landscape') {
-        document.documentElement.style.position = 'fixed';
-        document.documentElement.style.width = '100%';
-        document.documentElement.style.height = '100%';
-        document.documentElement.style.overflow = 'hidden';
-        
-        // Force iOS to use hardware acceleration
-        document.body.style.transform = 'translate3d(0,0,0)';
-        document.body.style.height = '100%';
-        document.body.style.width = '100%';
-        
-        // Make the document slightly taller than the viewport
-        // This is a trick that can help hide the URL bar
-        const scrollHelper = document.createElement('div');
-        scrollHelper.style.position = 'absolute';
-        scrollHelper.style.height = '200%';
-        scrollHelper.style.width = '100%';
-        scrollHelper.style.pointerEvents = 'none';
-        scrollHelper.style.top = '0';
-        scrollHelper.style.left = '0';
-        scrollHelper.style.zIndex = '-1000';
-        scrollHelper.style.opacity = '0';
-        document.body.appendChild(scrollHelper);
-        
-        // Try multiple times to hide the URL bar
-        for (let i = 0; i < 10; i++) {
-          setTimeout(() => {
-            window.scrollTo(0, 1);
-          }, 100 + (i * 50));
-        }
-        
-        // Clean up the helper after use
-        setTimeout(() => {
-          if (document.body.contains(scrollHelper)) {
-            document.body.removeChild(scrollHelper);
-          }
-        }, 2000);
-      }
-    }
-
-    const handleOrientationChange = async () => {
+    // Handle orientation changes
+    const handleOrientationChange = () => {
       const newOrientation = getDeviceOrientation();
       setOrientation(newOrientation);
       
-      console.log('Home - Orientation changed:', { 
-        newOrientation, 
-        width: window.innerWidth, 
-        height: window.innerHeight,
-        isFullscreen: isFullscreen()
-      });
-      
-      if (mobile) {
-        // Apply fullscreen in landscape mode
-        if (newOrientation === 'landscape') {
-          console.log('Home - Landscape detected, requesting fullscreen');
-          
-          // Only request fullscreen if not already in fullscreen
-          if (!isFullscreen()) {
-            // Force fullscreen on landscape orientation
-            try {
-              await requestFullscreen(document.documentElement);
-              // Add body class to ensure proper styling
-              document.body.classList.add('ios-fullscreen');
-              vibrate(20);
-            } catch (error) {
-              console.error('Error requesting fullscreen:', error);
-              // Fallback if fullscreen fails
-              document.body.classList.add('fullscreen-fallback');
-            }
-          }
-        } 
-        // Exit fullscreen in portrait mode
-        else if (newOrientation === 'portrait') {
-          console.log('Home - Portrait detected, exiting fullscreen');
-          try {
-            await exitFullscreen();
-            document.body.classList.remove('ios-fullscreen', 'fullscreen-fallback');
-          } catch (error) {
-            console.error('Error exiting fullscreen:', error);
-          }
-        }
+      // Add body class for landscape orientation
+      if (newOrientation === 'landscape') {
+        document.body.classList.add('landscape-orientation');
+      } else {
+        document.body.classList.remove('landscape-orientation');
       }
+      
+      console.log('Orientation changed to:', newOrientation);
     };
-
-    // Add event listeners for orientation changes
+    
     window.addEventListener('resize', handleOrientationChange);
     window.addEventListener('orientationchange', handleOrientationChange);
     
-    // Force a check when the component mounts
-    setTimeout(() => {
-      handleOrientationChange();
-    }, 500);
+    // Set initial orientation class
+    handleOrientationChange();
     
-    // And another check a bit later to ensure proper detection
-    setTimeout(() => {
-      handleOrientationChange();
-    }, 1500);
-
     return () => {
       window.removeEventListener('resize', handleOrientationChange);
       window.removeEventListener('orientationchange', handleOrientationChange);
@@ -191,7 +70,7 @@ export default function Home() {
     }
     
     // Try to enter fullscreen on game area click in landscape mode
-    if (isMobileDevice && orientation === 'landscape' && !isFullscreen()) {
+    if (isMobile && orientation === 'landscape' && !isFullscreen()) {
       console.log('Home - Game area clicked in landscape, requesting fullscreen');
       try {
         await requestFullscreen(document.documentElement);
@@ -232,20 +111,13 @@ export default function Home() {
         onTouchStart={(e) => {
           // Don't interfere with button clicks
           if (e.target instanceof HTMLButtonElement) {
-            // Allow button events to propagate naturally
             return;
           }
           
-          console.log('Touch detected on game wrapper');
-          
           // Try to enter fullscreen on touch in landscape mode
-          if (isMobileDevice && orientation === 'landscape' && !isFullscreen()) {
-            console.log('Attempting fullscreen from touch in game wrapper');
+          if (isMobile && orientation === 'landscape' && !isFullscreen()) {
             try {
-              // Try to hide browser UI by scrolling
               window.scrollTo(0, 1);
-              
-              // Force iOS fullscreen
               document.documentElement.style.position = 'fixed';
               document.documentElement.style.width = '100%';
               document.documentElement.style.height = '100%';
@@ -260,27 +132,37 @@ export default function Home() {
             }
           }
         }}
-        className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden touch-manipulation' : ''} ${isIOSDevice ? 'ios-game-container' : ''} ${orientation === 'landscape' ? 'fullscreen-container' : ''}`}
+        className={`w-full max-w-[800px] ${
+          isMobile ? 'overflow-hidden touch-manipulation' : ''
+        } ${
+          isIOSDevice ? 'ios-game-container' : ''
+        } ${
+          orientation === 'landscape' ? 'fullscreen-container flex items-center justify-center' : ''
+        }`}
       >
         <div 
-          className={`relative ${isMobileDevice ? 'transform-origin-top' : ''}`} 
-          style={isMobileDevice ? {
-            transform: window.innerWidth < 800 ? `scale(${window.innerWidth / 800})` : 'none',
+          className={`relative ${isMobile ? 'transform-origin-top' : ''}`} 
+          style={isMobile ? {
+            transform: orientation === 'landscape' 
+              ? `scale(${Math.min(window.innerWidth / 800, window.innerHeight / 600)})` 
+              : window.innerWidth < 800 ? `scale(${window.innerWidth / 800})` : 'none',
             height: window.innerWidth < 800 ? `${600 * (window.innerWidth / 800)}px` : '600px',
             marginBottom: window.innerWidth < 800 ? '-200px' : '0'
           } : {}}
         >
-          <Game fullscreen={isMobileDevice && orientation === 'landscape'} />
+          <Game fullscreen={isMobile && orientation === 'landscape'} />
         </div>
       </div>
       
-      {isMobileDevice && orientation === 'portrait' && (
+      {/* Mobile instructions shown only in portrait mode */}
+      {isMobile && orientation === 'portrait' && (
         <div className="mt-6 text-xs text-green-500 text-center">
           <p>For the best experience, rotate your device to landscape mode.</p>
           <p className="mt-1">Tap to shoot, swipe to move!</p>
         </div>
       )}
       
+      {/* Footer only shown in portrait */}
       {!orientation || orientation === 'portrait' ? (
         <footer className="mt-8 text-xs text-green-500 text-center">
           <p>Classic Space Invaders - A Next.js Game</p>
@@ -288,7 +170,7 @@ export default function Home() {
       ) : null}
 
       {/* Show homescreen prompt for mobile devices */}
-      {isMobileDevice && !isFromHomeScreen && <HomeScreenPrompt />}
+      {isMobile && !isFromHomeScreen && <HomeScreenPrompt />}
     </main>
   );
 }
