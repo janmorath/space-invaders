@@ -7,6 +7,7 @@ import Projectile from './Projectile';
 import GameOver from './GameOver';
 import Shield from './Shield';
 import { playLaserSound, playExplosionSound, playGameOverSound, initAudioContext } from '../lib/sounds';
+import { isMobile, getTouchControlsConfig, vibrate } from '../utils/device';
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
@@ -57,6 +58,12 @@ export default function Game() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundsLoaded, setSoundsLoaded] = useState(false);
   
+  // Device detection
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [touchControls, setTouchControls] = useState({ enabled: false, sensitivity: 1.0, deadzone: 0.05 });
+  const touchStartXRef = useRef<number | null>(null);
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+  
   // Load high score from localStorage on initial render
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -64,6 +71,14 @@ export default function Game() {
       if (savedHighScore) {
         setHighScore(parseInt(savedHighScore, 10));
       }
+      
+      // Detect if using a mobile device
+      const mobileDevice = isMobile();
+      setIsMobileDevice(mobileDevice);
+      
+      // Configure touch controls
+      const touchConfig = getTouchControlsConfig();
+      setTouchControls(touchConfig);
     }
   }, []);
   
@@ -213,15 +228,96 @@ export default function Game() {
         setKeys(prev => ({ ...prev, space: false }));
       }
     };
+    
+    // Touch event handlers for mobile devices
+    const handleTouchStart = (e: TouchEvent) => {
+      if (!touchControls.enabled) return;
+      
+      // Prevent default to avoid scrolling
+      e.preventDefault();
+      
+      // Store initial touch position
+      if (e.touches.length > 0) {
+        touchStartXRef.current = e.touches[0].clientX;
+      }
+      
+      // Check if touch is in the bottom half of the screen (movement area)
+      const touchY = e.touches[0]?.clientY || 0;
+      const containerHeight = gameContainerRef.current?.clientHeight || 0;
+      
+      if (touchY > containerHeight * 0.7) {
+        // Touch in movement area - do nothing yet, movement will be handled in touchmove
+      } else {
+        // Touch in shooting area - fire
+        setKeys(prev => ({ ...prev, space: true }));
+        
+        // Add slight delay before releasing the space key
+        setTimeout(() => {
+          setKeys(prev => ({ ...prev, space: false }));
+        }, 100);
+      }
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchControls.enabled || touchStartXRef.current === null) return;
+      
+      e.preventDefault();
+      
+      if (e.touches.length > 0) {
+        const currentX = e.touches[0].clientX;
+        const deltaX = currentX - touchStartXRef.current;
+        
+        // Apply sensitivity and check deadzone
+        const movement = deltaX * touchControls.sensitivity;
+        
+        if (Math.abs(movement) > touchControls.deadzone * 20) {
+          if (movement < 0) {
+            setKeys(prev => ({ ...prev, left: true, right: false }));
+          } else {
+            setKeys(prev => ({ ...prev, left: false, right: true }));
+          }
+        } else {
+          // Within deadzone - stop movement
+          setKeys(prev => ({ ...prev, left: false, right: false }));
+        }
+      }
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!touchControls.enabled) return;
+      
+      e.preventDefault();
+      
+      // Reset touch tracking
+      touchStartXRef.current = null;
+      
+      // Stop movement
+      setKeys(prev => ({ ...prev, left: false, right: false }));
+    };
 
+    // Attach event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    
+    if (touchControls.enabled && gameContainerRef.current) {
+      const container = gameContainerRef.current;
+      container.addEventListener('touchstart', handleTouchStart as EventListener);
+      container.addEventListener('touchmove', handleTouchMove as EventListener);
+      container.addEventListener('touchend', handleTouchEnd as EventListener);
+    }
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      
+      if (gameContainerRef.current) {
+        const container = gameContainerRef.current;
+        container.removeEventListener('touchstart', handleTouchStart as EventListener);
+        container.removeEventListener('touchmove', handleTouchMove as EventListener);
+        container.removeEventListener('touchend', handleTouchEnd as EventListener);
+      }
     };
-  }, [gameStarted]);
+  }, [gameStarted, touchControls.enabled, touchControls.sensitivity, touchControls.deadzone]);
 
   useEffect(() => {
     if (!gameStarted) return;
@@ -243,17 +339,7 @@ export default function Game() {
 
       // Player shooting
       if (keys.space && shotCooldownRef.current <= 0) {
-        setProjectiles(prev => [
-          ...prev,
-          {
-            id: projectileIdRef.current++,
-            x: playerPosition.x + PLAYER_WIDTH / 2 - PROJECTILE_WIDTH / 2,
-            y: playerPosition.y,
-            isPlayer: true
-          }
-        ]);
-        shotCooldownRef.current = 500; // 500ms cooldown
-        playSound('laser');
+        firePlayerProjectile();
       }
 
       // Alien shooting
@@ -306,7 +392,7 @@ export default function Game() {
         setGameOver(true);
         setGameStarted(false);
         updateHighScore();
-        playSound('gameover');
+        playExplosionWithHaptics();
         return;
       }
 
@@ -353,7 +439,7 @@ export default function Game() {
                   const newScore = score + alien.points;
                   return newScore;
                 });
-                playSound('explosion');
+                playExplosionWithHaptics();
                 
                 // Increase alien speed slightly as more aliens are destroyed
                 const aliveCount = aliens.filter(a => a.alive).length;
@@ -438,7 +524,7 @@ export default function Game() {
             setGameOver(true);
             setGameStarted(false);
             updateHighScore();
-            playSound('gameover');
+            playGameOverWithHaptics();
             break;
           }
         }
@@ -501,12 +587,50 @@ export default function Game() {
     };
   }, []);
 
+  // Player shooting function (modified to support haptic feedback on mobile)
+  const firePlayerProjectile = () => {
+    setProjectiles(prev => [
+      ...prev,
+      {
+        id: projectileIdRef.current++,
+        x: playerPosition.x + PLAYER_WIDTH / 2 - PROJECTILE_WIDTH / 2,
+        y: playerPosition.y,
+        isPlayer: true
+      }
+    ]);
+    shotCooldownRef.current = 500; // 500ms cooldown
+    playSound('laser');
+    
+    // Add haptic feedback for mobile devices
+    if (isMobileDevice) {
+      vibrate(15); // Short vibration for shooting
+    }
+  };
+
+  // Add haptic feedback for explosion and game over
+  const playExplosionWithHaptics = () => {
+    playSound('explosion');
+    if (isMobileDevice) {
+      vibrate(30);
+    }
+  };
+  
+  const playGameOverWithHaptics = () => {
+    playSound('gameover');
+    if (isMobileDevice) {
+      vibrate([50, 100, 50, 100, 50]);
+    }
+  };
+
   return (
-    <div className="relative h-[600px] w-[800px] bg-black border-2 border-green-500 overflow-hidden select-none">
+    <div 
+      ref={gameContainerRef}
+      className="relative h-[600px] w-[800px] bg-black border-2 border-green-500 overflow-hidden select-none"
+    >
       {!gameStarted && !gameOver && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-green-500">
           <h1 className="text-4xl font-bold mb-6">SPACE INVADERS</h1>
-          <p className="mb-4">Press ENTER to start</p>
+          <p className="mb-4">{isMobileDevice ? 'Tap to start' : 'Press ENTER to start'}</p>
           
           {!soundsLoaded && (
             <button 
@@ -523,12 +647,30 @@ export default function Game() {
           
           <div className="text-sm">
             <p>Controls:</p>
-            <p>← → or A D to move</p>
-            <p>SPACE to shoot</p>
+            {isMobileDevice ? (
+              <>
+                <p>Tap upper screen to shoot</p>
+                <p>Swipe lower screen to move</p>
+              </>
+            ) : (
+              <>
+                <p>← → or A D to move</p>
+                <p>SPACE to shoot</p>
+              </>
+            )}
             <p>M to toggle sound {soundEnabled ? '(On)' : '(Off)'}</p>
           </div>
           {highScore > 0 && (
             <p className="mt-4 text-xl">High Score: {highScore}</p>
+          )}
+          
+          {isMobileDevice && (
+            <button 
+              onClick={startGame} 
+              className="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold"
+            >
+              START GAME
+            </button>
           )}
         </div>
       )}
@@ -540,7 +682,7 @@ export default function Game() {
           <div className="absolute top-10 left-2 text-green-500 text-sm">Wave: {wave} / 5</div>
           <div className="absolute top-2 right-2 text-green-500 text-sm flex flex-col items-end">
             <div>
-              Sound: {soundEnabled ? (soundsLoaded ? 'On' : 'Off (Not Initialized)') : 'Off'} (Press M to toggle)
+              Sound: {soundEnabled ? (soundsLoaded ? 'On' : 'Off (Not Initialized)') : 'Off'} {isMobileDevice ? '(Tap M)' : '(Press M)'}
             </div>
             {!soundsLoaded && soundEnabled && (
               <button 
@@ -592,23 +734,49 @@ export default function Game() {
             />
           ))}
           
-          {/* Wave complete message */}
-          {waveCompleteMessage && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
-              <h2 className="text-4xl font-bold mb-4 text-green-500">Wave {wave} Complete!</h2>
-              <p className="text-2xl text-green-400">Get Ready For Wave {wave + 1}</p>
+          {/* Mobile controls overlay - only shown on mobile devices */}
+          {isMobileDevice && (
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute bottom-0 left-0 w-full h-20 bg-black bg-opacity-20 flex items-center justify-between px-4">
+                <button 
+                  className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-3xl font-bold"
+                  onClick={() => setKeys(prev => ({ ...prev, space: true }))}
+                  onTouchEnd={() => setKeys(prev => ({ ...prev, space: false }))}
+                >
+                  🔫
+                </button>
+                
+                <button 
+                  className="w-20 h-20 rounded-full bg-green-500 bg-opacity-20 border-2 border-green-500 pointer-events-auto flex items-center justify-center text-xl font-bold"
+                  onClick={() => setSoundEnabled(prev => !prev)}
+                >
+                  {soundEnabled ? '🔊' : '🔇'}
+                </button>
+              </div>
             </div>
           )}
         </>
       )}
-
-      {gameOver && <GameOver 
-        score={score} 
-        onRestart={startGame} 
-        victory={aliens.every(alien => !alien.alive) && wave >= 5} 
-        highScore={highScore}
-        wave={wave} 
-      />}
+      
+      {waveCompleteMessage && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="bg-black bg-opacity-70 p-4 rounded-lg border-2 border-green-500">
+            <p className="text-green-500 text-2xl font-bold">Wave {wave} Complete!</p>
+            <p className="text-green-500">Preparing Wave {wave + 1}...</p>
+          </div>
+        </div>
+      )}
+      
+      {gameOver && (
+        <GameOver 
+          score={score} 
+          highScore={highScore} 
+          onRestart={startGame} 
+          wave={wave}
+          isWin={wave >= 5 && aliens.every(alien => !alien.alive)}
+          isMobile={isMobileDevice}
+        />
+      )}
     </div>
   );
 } 

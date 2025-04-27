@@ -38,9 +38,10 @@ declare module './components/GameOver' {
   interface GameOverProps {
     score: number;
     onRestart: () => void;
-    victory: boolean;
+    isWin: boolean;
     highScore?: number;
     wave?: number;
+    isMobile?: boolean;
   }
   const GameOver: React.FC<GameOverProps>;
   export default GameOver;
