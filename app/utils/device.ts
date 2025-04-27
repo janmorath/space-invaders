@@ -18,6 +18,25 @@ interface NavigatorWithUserAgentData extends Navigator {
   };
 }
 
+// Define orientation lock types
+type OrientationLockType = 
+  | 'any'
+  | 'natural'
+  | 'landscape'
+  | 'portrait'
+  | 'portrait-primary'
+  | 'portrait-secondary'
+  | 'landscape-primary'
+  | 'landscape-secondary';
+
+// Define screen orientation interface
+interface ScreenOrientationType {
+  angle: number;
+  type: string;
+  lock?: (orientation: OrientationLockType) => Promise<void>;
+  unlock?: () => void;
+}
+
 /**
  * Detects if the current device is a mobile device
  * @returns boolean - true if the device is mobile, false otherwise
@@ -138,19 +157,44 @@ export async function requestFullscreen(element: HTMLElement = document.document
   }
   
   try {
+    // For mobile browsers, it's often best to use the screen orientation API first
+    if (typeof screen !== 'undefined' && screen.orientation) {
+      try {
+        // Cast to our interface that includes the lock method
+        const orientation = screen.orientation as ScreenOrientationType;
+        if (orientation.lock) {
+          await orientation.lock('landscape');
+          console.log('Screen orientation locked to landscape');
+        }
+      } catch (orientationError) {
+        console.warn('Could not lock screen orientation:', orientationError);
+      }
+    }
+    
+    // Use standard fullscreen API
     if (element.requestFullscreen) {
+      console.log('Using standard requestFullscreen API');
       await element.requestFullscreen();
     } else if ((element as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen) {
+      console.log('Using webkit requestFullscreen API');
       await (element as HTMLElement & { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
     } else if ((element as HTMLElement & { msRequestFullscreen?: () => Promise<void> }).msRequestFullscreen) {
+      console.log('Using MS requestFullscreen API');
       await (element as HTMLElement & { msRequestFullscreen: () => Promise<void> }).msRequestFullscreen();
     } else if ((element as HTMLElement & { mozRequestFullScreen?: () => Promise<void> }).mozRequestFullScreen) {
+      console.log('Using Moz requestFullscreen API');
       await (element as HTMLElement & { mozRequestFullScreen: () => Promise<void> }).mozRequestFullScreen();
     }
     
     // Add iOS fullscreen fallback
     if (isIOS()) {
       document.body.classList.add('ios-fullscreen');
+      // iOS specific - scroll to top and prevent scrolling
+      document.documentElement.style.position = 'fixed';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.width = '100%';
+      document.documentElement.style.height = '100%';
+      
       setTimeout(() => {
         window.scrollTo(0, 0);
       }, 100);
@@ -160,6 +204,11 @@ export async function requestFullscreen(element: HTMLElement = document.document
     console.error('Fullscreen request failed:', error);
     // Add fallback class for devices that don't support fullscreen
     document.body.classList.add('fullscreen-fallback');
+    
+    // Try to at least hide the browser UI by scrolling to fullscreen
+    setTimeout(() => {
+      window.scrollTo(0, 1);
+    }, 100);
   }
 }
 

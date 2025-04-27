@@ -734,12 +734,11 @@ export default function Game({ fullscreen = false }: GameProps) {
           
           {isMobileDevice && (
             <button 
+              className="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold game-control-button start-game-button"
               onTouchStart={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
+                console.log('START GAME button touched');
                 startGame();
                 vibrate(30);
                 
@@ -748,7 +747,17 @@ export default function Game({ fullscreen = false }: GameProps) {
                   testSound();
                 }
               }}
-              className="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold game-control-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('START GAME button clicked');
+                startGame();
+                vibrate(30);
+                
+                // Make sure sound is initialized when starting the game
+                if (soundEnabled && !soundsLoaded) {
+                  testSound();
+                }
+              }}
             >
               START GAME
             </button>

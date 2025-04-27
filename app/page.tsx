@@ -150,21 +150,26 @@ export default function Home() {
         onTouchStart={(e) => {
           // Don't interfere with button clicks
           if (e.target instanceof HTMLButtonElement) {
+            // Allow button events to propagate naturally
             return;
           }
           
+          console.log('Touch detected on game wrapper');
+          
           // Try to enter fullscreen on touch in landscape mode
           if (isMobileDevice && orientation === 'landscape' && !isFullscreen()) {
+            console.log('Attempting fullscreen from touch in game wrapper');
             try {
               requestFullscreen(document.documentElement);
               document.body.classList.add('ios-fullscreen');
+              vibrate(15);
             } catch (error) {
               console.error('Error requesting fullscreen on touch:', error);
               document.body.classList.add('fullscreen-fallback');
             }
           }
         }}
-        className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden' : ''} ${isIOSDevice ? 'ios-game-container' : ''} ${orientation === 'landscape' ? 'fullscreen-container' : ''}`}
+        className={`w-full max-w-[800px] ${isMobileDevice ? 'overflow-hidden touch-manipulation' : ''} ${isIOSDevice ? 'ios-game-container' : ''} ${orientation === 'landscape' ? 'fullscreen-container' : ''}`}
       >
         <div 
           className={`relative ${isMobileDevice ? 'transform-origin-top' : ''}`} 
