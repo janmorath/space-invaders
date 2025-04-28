@@ -28,7 +28,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#000000"
+  themeColor: "#000000",
+  viewportFit: "cover"
 };
 
 export default function RootLayout({
@@ -46,6 +47,11 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#000000" />
         <meta name="apple-touch-fullscreen" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+        
+        {/* Add meta tags specifically for iOS Safari */}
+        <meta name="HandheldFriendly" content="true" />
+        <meta name="apple-mobile-web-app-title" content="Space Invaders" />
         
         {/* Special script to handle mobile fullscreen with multiple techniques */}
         <script dangerouslySetInnerHTML={{
@@ -67,7 +73,7 @@ export default function RootLayout({
                 document.body.style.overflow = 'hidden';
                 
                 // Apply classes
-                document.body.classList.add('ios-fullscreen');
+                document.body.classList.add('ios-fullscreen', 'landscape-orientation');
                 
                 // Multiple scroll attempts to hide browser UI
                 for (let i = 0; i < 10; i++) {
@@ -111,16 +117,60 @@ export default function RootLayout({
                     window.scrollTo(0, scrollY);
                   }, 500 + (i * 50));
                 }
+                
+                // Create a full-size overlay to intercept touch events
+                if (!document.getElementById('fullscreen-overlay')) {
+                  const overlay = document.createElement('div');
+                  overlay.id = 'fullscreen-overlay';
+                  overlay.style.position = 'fixed';
+                  overlay.style.top = '0';
+                  overlay.style.left = '0';
+                  overlay.style.width = '100vw';
+                  overlay.style.height = '100vh';
+                  overlay.style.backgroundColor = 'black';
+                  overlay.style.zIndex = '9998';
+                  overlay.style.opacity = '0';
+                  overlay.style.pointerEvents = 'none';
+                  document.body.appendChild(overlay);
+                  
+                  setTimeout(() => {
+                    overlay.style.opacity = '0';
+                    overlay.style.pointerEvents = 'none';
+                  }, 300);
+                }
+              }
+            }
+            
+            // iOS-specific fix for 100vh
+            function setIOSHeight() {
+              // First, get the viewport height and multiply by 1% to get a value for a vh unit
+              let vh = window.innerHeight * 0.01;
+              // Then set the value in the --vh custom property to the root of the document
+              document.documentElement.style.setProperty('--vh', \`\${vh}px\`);
+              
+              // For iOS Safari, use a more aggressive approach to get full screen height
+              if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                document.documentElement.style.height = '100vh';
+                document.documentElement.style.height = '-webkit-fill-available';
+                document.body.style.height = '100vh';
+                document.body.style.height = '-webkit-fill-available';
               }
             }
             
             // Run on load and orientation change
-            window.addEventListener('orientationchange', handleFullscreen);
-            window.addEventListener('resize', handleFullscreen);
+            window.addEventListener('orientationchange', () => {
+              handleFullscreen();
+              setIOSHeight();
+            });
+            window.addEventListener('resize', () => {
+              handleFullscreen();
+              setIOSHeight();
+            });
             document.addEventListener('touchstart', handleFullscreen);
             
             // Initial call with small delay
             if (typeof window !== 'undefined') {
+              setIOSHeight();
               setTimeout(handleFullscreen, 100);
               setTimeout(handleFullscreen, 500);
               setTimeout(handleFullscreen, 1000);
@@ -145,6 +195,15 @@ export default function RootLayout({
                   document.body.removeChild(scrollHelper);
                 }, 1500);
               }, 1200);
+              
+              // Add a listener to catch and suppress browser UI via touchend
+              document.addEventListener('touchend', (e) => {
+                if (window.orientation === 90 || window.orientation === -90) {
+                  setTimeout(() => {
+                    window.scrollTo(0, 1);
+                  }, 100);
+                }
+              });
             }
           `
         }} />

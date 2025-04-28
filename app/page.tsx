@@ -20,6 +20,57 @@ export default function Home() {
   const [isFromHomeScreen, setIsFromHomeScreen] = useState(false);
   const gameWrapperRef = useRef<HTMLDivElement>(null);
 
+  // Enhanced fullscreen function for mobile browsers
+  const enterAggressiveFullscreen = async () => {
+    // Try to scroll to hide browser UI
+    setTimeout(() => window.scrollTo(0, 1), 100);
+    
+    // Force fixed positioning for viewport
+    document.documentElement.style.position = 'fixed';
+    document.documentElement.style.width = '100%';
+    document.documentElement.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    
+    // Apply iOS-specific styles
+    if (isIOSDevice) {
+      document.body.style.height = '120vh'; // Taller to force scroll
+      document.body.style.position = 'fixed';
+      document.body.classList.add('ios-fullscreen');
+        
+      // Create a hidden element to force scroll
+      const scrollHelper = document.createElement('div');
+      scrollHelper.style.position = 'absolute';
+      scrollHelper.style.top = '0';
+      scrollHelper.style.left = '0';
+      scrollHelper.style.width = '100%';
+      scrollHelper.style.height = '150vh';
+      scrollHelper.style.opacity = '0';
+      scrollHelper.style.pointerEvents = 'none';
+      scrollHelper.style.zIndex = '-100';
+      document.body.appendChild(scrollHelper);
+      
+      // Multiple scroll attempts to hide UI
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => window.scrollTo(0, 1), i * 300);
+      }
+      
+      // Clean up helper element after use
+      setTimeout(() => {
+        document.body.removeChild(scrollHelper);
+      }, 2000);
+    }
+    
+    // Try to request proper fullscreen API
+    try {
+      await requestFullscreen(document.documentElement);
+      vibrate(15);
+    } catch (error) {
+      console.error('Error requesting fullscreen:', error);
+      // Fallback if fullscreen fails
+      document.body.classList.add('fullscreen-fallback');
+    }
+  };
+
   // Set up client-side state once mounted
   useEffect(() => {
     setIsClient(true);
@@ -40,14 +91,19 @@ export default function Home() {
       const newOrientation = getDeviceOrientation();
       setOrientation(newOrientation);
       
+      const mobile = isMobileDevice();
+      
       // Add body class for landscape orientation
       if (newOrientation === 'landscape') {
         document.body.classList.add('landscape-orientation');
+        
+        // Automatically try fullscreen on landscape for mobile
+        if (mobile && !isFromHomeScreen) {
+          enterAggressiveFullscreen();
+        }
       } else {
         document.body.classList.remove('landscape-orientation');
       }
-      
-      console.log('Orientation changed to:', newOrientation);
     };
     
     window.addEventListener('resize', handleOrientationChange);
@@ -56,11 +112,18 @@ export default function Home() {
     // Set initial orientation class
     handleOrientationChange();
     
+    // Apply fullscreen if launched from home screen
+    if (isStandalone) {
+      setTimeout(() => {
+        enterAggressiveFullscreen();
+      }, 500);
+    }
+    
     return () => {
       window.removeEventListener('resize', handleOrientationChange);
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
-  }, []);
+  }, [isFromHomeScreen]);
 
   // Handle clicks on the game area to try entering fullscreen
   const handleGameAreaClick = async (e: React.MouseEvent) => {
@@ -71,17 +134,7 @@ export default function Home() {
     
     // Try to enter fullscreen on game area click in landscape mode
     if (isMobile && orientation === 'landscape' && !isFullscreen()) {
-      console.log('Home - Game area clicked in landscape, requesting fullscreen');
-      try {
-        await requestFullscreen(document.documentElement);
-        // Add body class to ensure proper styling
-        document.body.classList.add('ios-fullscreen');
-        vibrate(15);
-      } catch (error) {
-        console.error('Error requesting fullscreen on click:', error);
-        // Fallback if fullscreen fails
-        document.body.classList.add('fullscreen-fallback');
-      }
+      enterAggressiveFullscreen();
     }
   };
 
@@ -116,20 +169,7 @@ export default function Home() {
           
           // Try to enter fullscreen on touch in landscape mode
           if (isMobile && orientation === 'landscape' && !isFullscreen()) {
-            try {
-              window.scrollTo(0, 1);
-              document.documentElement.style.position = 'fixed';
-              document.documentElement.style.width = '100%';
-              document.documentElement.style.height = '100%';
-              document.documentElement.style.overflow = 'hidden';
-              
-              requestFullscreen(document.documentElement);
-              document.body.classList.add('ios-fullscreen');
-              vibrate(15);
-            } catch (error) {
-              console.error('Error requesting fullscreen on touch:', error);
-              document.body.classList.add('fullscreen-fallback');
-            }
+            enterAggressiveFullscreen();
           }
         }}
         className={`w-full max-w-[800px] ${

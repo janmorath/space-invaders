@@ -147,6 +147,11 @@ body {
   main {
     padding: 0 !important;
     margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: 100vh !important;
   }
 
   .game-container {
@@ -589,14 +594,90 @@ body.landscape-orientation {
   position: fixed !important;
   margin: 0 !important;
   padding: 0 !important;
+  /* Fix to hide address bar on mobile browsers */
+  padding-top: env(safe-area-inset-top) !important;
+  padding-bottom: env(safe-area-inset-bottom) !important;
 }
 
-/* Center game in landscape mode */
-.landscape-mode {
+/* Center game in landscape mode - IMPORTANT: ensure position absolute with transform */
+.landscape-mode, 
+#game-wrapper,
+main > div {
   position: absolute !important;
   top: 50% !important;
   left: 50% !important;
   transform: translate(-50%, -50%) !important;
+  margin: 0 auto !important;
+}
+
+/* Improved browser UI hiding in fullscreen */
+@media screen and (orientation: landscape) {
+  /* Apply scroll-to-hide technique for mobile browsers */
+  html, body {
+    height: 100vh !important;
+    width: 100vw !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+  
+  /* Center all game content properly in landscape */
+  main, .game-container, #game-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  /* Ensure absolute positioning for the game area */
+  #game-wrapper .relative {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+  
+  /* More aggressive browser UI hiding for iOS devices */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      /* Force content to be 100vh + extra to push UI out */
+      min-height: 120vh !important;
+      /* Hide UI on scroll */
+      position: fixed !important;
+      /* iOS-specific inset handling */
+      padding-top: env(safe-area-inset-top) !important;
+      padding-bottom: env(safe-area-inset-bottom) !important;
+    }
+    
+    /* Scroll trick to hide Safari UI */
+    body:after {
+      content: "";
+      display: block;
+      position: fixed;
+      width: 100%;
+      height: 140vh; /* Extra height forces scroll */
+      top: 0;
+      left: 0;
+      z-index: -10;
+      background-color: black;
+    }
+    
+    /* Force elements into hardware-accelerated rendering */
+    body * {
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    
+    /* Ensure game canvas is centered */
+    canvas, #game-wrapper {
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+    }
+  }
 }
 
 /* Fix for touch events in landscape mode */
